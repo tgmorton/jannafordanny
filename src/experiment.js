@@ -1,7 +1,7 @@
 /**
- * @title test
- * @description test
- * @version 0.1.0
+ * @title Video Arousal Rating Experiment
+ * @description jsPsych experiment for measuring arousal responses to video stimuli
+ * @version 0.2.0
  *
  * @assets assets/
  */

@@ -65,13 +65,13 @@ This will open a browser at `http://localhost:3000/`
 ```bash
 npm run build
 ```
-Output will be in `packaged/experiment_0.1.0.zip`
+Output will be in `packaged/experiment_0.2.0.zip`
 
 ### Build for JATOS:
 ```bash
 npm run jatos
 ```
-Output will be in `packaged/experiment_0.1.0.jzip`
+Output will be in `packaged/experiment_0.2.0.jzip`
 
 ## Experiment Structure
 
