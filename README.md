@@ -167,6 +167,124 @@ git help              # General help
 git help commit       # Help for a specific command
 ```
 
+## jsPsych Basics (Learning Guide)
+
+This repository can be used as a learning resource for jsPsych. Here are the key concepts demonstrated:
+
+### What is jsPsych?
+
+jsPsych is a JavaScript library for running behavioral experiments in a web browser. It handles the flow of trials, collects responses, and records data automatically.
+
+**Official documentation:** https://www.jspsych.org/
+
+### Core Concepts
+
+#### 1. Timeline
+The timeline is an array of trials that run in sequence:
+```javascript
+const timeline = [];
+timeline.push(trial1);
+timeline.push(trial2);
+await jsPsych.run(timeline);
+```
+
+#### 2. Trials
+Each trial is an object with a `type` (plugin) and configuration options:
+```javascript
+var welcome = {
+  type: HtmlKeyboardResponsePlugin,
+  stimulus: "<h1>Welcome!</h1><p>Press any key to continue.</p>"
+};
+```
+
+#### 3. Plugins
+Plugins define trial types. Common plugins include:
+- `HtmlKeyboardResponsePlugin` - Show HTML, wait for keypress
+- `VideoKeyboardResponsePlugin` - Play video, wait for keypress
+- `SurveyLikertPlugin` - Likert scale questions
+- `PreloadPlugin` - Preload media files
+
+Import plugins at the top of your experiment:
+```javascript
+import HtmlKeyboardResponsePlugin from "@jspsych/plugin-html-keyboard-response";
+```
+
+#### 4. Timeline Variables (for repeated trials)
+When you want to repeat a trial with different stimuli:
+```javascript
+// Define the stimuli
+var stimuli = [
+  { filepath: ['assets/video1.mp4'], name: 'video1' },
+  { filepath: ['assets/video2.mp4'], name: 'video2' }
+];
+
+// Define the trial template
+var video_trial = {
+  type: VideoKeyboardResponsePlugin,
+  stimulus: jsPsych.timelineVariable('filepath'),  // References stimuli
+  data: {
+    filename: jsPsych.timelineVariable('name')
+  }
+};
+
+// Create procedure that repeats the trial for each stimulus
+var procedure = {
+  timeline: [video_trial],
+  timeline_variables: stimuli
+};
+
+timeline.push(procedure);
+```
+
+#### 5. Data Collection
+jsPsych automatically collects data. Add custom data fields:
+```javascript
+var trial = {
+  type: HtmlKeyboardResponsePlugin,
+  stimulus: "Hello",
+  data: {
+    task: 'greeting',
+    condition: 'friendly'
+  }
+};
+```
+
+#### 6. Randomization
+Shuffle arrays using Fisher-Yates algorithm:
+```javascript
+function shuffle(array) {
+  var shuffled = [...array];
+  for (var i = shuffled.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+```
+
+### Key Patterns in This Experiment
+
+1. **Async data loading** - Load stimuli from JSON file
+2. **Block design** - Multiple blocks with different conditions
+3. **Nested timelines** - Trials within blocks within the main timeline
+4. **Custom plugins** - VideoArousalRatingPlugin for specialized input
+5. **CSS styling** - Custom styles in `styles/main.scss`
+
+### Learning Resources
+
+- **jsPsych Documentation:** https://www.jspsych.org/
+- **jsPsych Tutorials:** https://www.jspsych.org/latest/tutorials/
+- **Plugin List:** https://www.jspsych.org/latest/plugins/
+- **jspsych-builder:** https://github.com/bjoluc/jspsych-builder
+
+### Tips for Beginners
+
+1. **Start simple** - Begin with basic trials before adding complexity
+2. **Use console.log** - Debug by logging variables to browser console
+3. **Check the browser console** - Press F12 to see errors
+4. **Test incrementally** - Add features one at a time and test each
+5. **Read plugin docs** - Each plugin has specific options
+
 ## Troubleshooting
 
 **Videos not loading:**
