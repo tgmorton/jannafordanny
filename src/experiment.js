@@ -29,7 +29,7 @@ export async function run({ assetPaths, input = {}, environment, title, version 
     return data;
   }
 
-  var allVideos = await loadJSON('assets/videos.json');
+  var allVideos = await loadJSON('assets/videos_mov.json');
 
   // Block types
   var blockTypes = ["neutral", "participatory", "observatory"];
@@ -91,7 +91,7 @@ export async function run({ assetPaths, input = {}, environment, title, version 
   // Practice trial with trackpad-based continuous arousal rating
   var practice_trial = {
     type: VideoArousalRatingPlugin,
-    stimulus: ['assets/ff1.mp4'],  // Use first video as practice
+    stimulus: ['assets/ff1.mov'],  // Use first video as practice
     input_mode: 'trackpad',
     video_width: 640,
     video_height: 480,
@@ -105,7 +105,7 @@ export async function run({ assetPaths, input = {}, environment, title, version 
     prompt: '<p>Practice: Move your finger on the trackpad to rate your arousal</p>',
     data: {
       task: 'practice_video',
-      filename: 'ff1.mp4'
+      filename: 'ff1.mov'
     }
   };
 

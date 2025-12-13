@@ -48,8 +48,10 @@ npm install
 ```
 
 3. Add video files:
-   - Place 18 MP4 video files in the `assets/` folder
-   - Files should be named: `ff1.mp4` through `ff9.mp4` and `fm1.mp4` through `fm9.mp4`
+   - Place 18 video files in the `assets/` folder
+   - Files should be named: `ff1` through `ff9` and `fm1` through `fm9`
+   - Supported formats: `.mov` (default) or `.mp4`
+   - To switch formats, edit `src/experiment.js` to load `videos.json` (mp4) or `videos_mov.json` (mov)
 
 ## Running the Experiment
 
@@ -288,8 +290,9 @@ function shuffle(array) {
 ## Troubleshooting
 
 **Videos not loading:**
-- Ensure MP4 files are in the `assets/` folder
-- Check file names match the expected format (ff1.mp4, fm1.mp4, etc.)
+- Ensure video files are in the `assets/` folder
+- Check file names match the expected format (ff1.mov, fm1.mov, etc.)
+- **Note on .mov files:** Safari has best support for .mov. Chrome/Firefox may have issues with some .mov files. If videos don't play, consider converting to .mp4 using: `ffmpeg -i input.mov -c:v libx264 -c:a aac output.mp4`
 
 **npm install fails:**
 - Try deleting `node_modules/` and `package-lock.json`, then run `npm install` again

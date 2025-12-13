@@ -7,6 +7,7 @@ packaged/
 
 # Video assets (too large for git)
 assets/*.mp4
+assets/*.mov
 
 # OS files
 .DS_Store
