@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+.jspsych-builder/
+packaged/
+
+# Video assets (too large for git)
+assets/*.mp4
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
