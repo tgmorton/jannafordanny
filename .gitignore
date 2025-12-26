@@ -5,9 +5,11 @@ node_modules/
 .jspsych-builder/
 packaged/
 
-# Video assets (too large for git)
+# Media assets (too large for git)
 assets/*.mp4
 assets/*.mov
+assets/*.mp3
+assets/*.wav
 
 # OS files
 .DS_Store
