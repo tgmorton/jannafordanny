@@ -28,7 +28,11 @@ export async function run({
   title,
   version,
 }) {
-  const jsPsych = initJsPsych();
+  const jsPsych = initJsPsych({
+    on_finish: function() {
+      jatos.endStudy(jsPsych.data.get().json());
+    }
+  });
 
   const timeline = [];
 
