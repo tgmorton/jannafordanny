@@ -404,8 +404,21 @@ class VideoArousalRatingPlugin {
   setupKeyboardInput(trial) {
     const step = trial.keyboard_step;
 
+    // Add delay before 'n' key can skip (prevents immediate skip from previous screen)
+    this.canSkip = false;
+    setTimeout(() => {
+      this.canSkip = true;
+    }, 500);
+
     // Key down handler
     const keyDownHandler = (e) => {
+      // Skip trial with 'n' or 'N' key (only after delay)
+      if ((e.key === 'n' || e.key === 'N') && this.canSkip) {
+        e.preventDefault();
+        this.endTrial(trial);
+        return;
+      }
+
       if (e.key === 'ArrowUp' && !this.isKeyHeld.up) {
         e.preventDefault();
         this.isKeyHeld.up = true;
@@ -458,6 +471,22 @@ class VideoArousalRatingPlugin {
 
   setupTrackpadInput(trial) {
     const container = document.getElementById('thermometer-container');
+
+    // Add delay before 'n' key can skip (prevents immediate skip from previous screen)
+    this.canSkip = false;
+    setTimeout(() => {
+      this.canSkip = true;
+    }, 500);
+
+    // Add keyboard listener for 'n' key to skip in trackpad mode too
+    const skipKeyHandler = (e) => {
+      if ((e.key === 'n' || e.key === 'N') && this.canSkip) {
+        e.preventDefault();
+        this.endTrial(trial);
+      }
+    };
+    document.addEventListener('keydown', skipKeyHandler);
+    this.skipKeyHandler = skipKeyHandler;
 
     // Track the full screen/window for input
     // Bottom of screen = 0, top of screen = 10
@@ -628,6 +657,11 @@ class VideoArousalRatingPlugin {
     if (this.trackpadCleanup) {
       this.trackpadCleanup();
       document.body.classList.remove('trackpad-mode');
+    }
+
+    // Remove skip key handler for trackpad mode
+    if (this.skipKeyHandler) {
+      document.removeEventListener('keydown', this.skipKeyHandler);
     }
 
     // Calculate summary statistics
