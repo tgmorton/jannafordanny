@@ -377,37 +377,49 @@ export async function run({
     },
   };
 
-  // Dial instructions screen - shown before blocks begin
+  // Dial instructions screen - shown at the beginning before nature video
   var dial_instructions = {
     type: HtmlButtonResponsePlugin,
     stimulus: `
       <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
-        <div style="display: flex; align-items: center; gap: 60px; max-width: 1100px;">
+        <div style="display: flex; align-items: center; gap: 60px; max-width: 1200px;">
           <div style="flex: 1; text-align: left;">
-            <h1 style="font-size: 28px; font-weight: bold; margin-bottom: 35px;">Sexual Arousal Dial Instructions</h1>
+            <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px;">How to Use the Sexual Arousal Dial</h1>
 
-            <div style="background: #f8f8f8; border-left: 4px solid #c0392b; padding: 15px 20px; margin-bottom: 18px;">
-              <p style="font-size: 18px; margin: 0 0 8px 0;"><strong>1. Before the video</strong> <span style="color: #666;">(10 seconds)</span></p>
-              <p style="font-size: 18px; margin: 0;">Set the dial to your current level of <strong>sexual arousal</strong>.</p>
+            <p style="font-size: 18px; line-height: 1.6; margin-bottom: 25px;">
+              Throughout this study, you will use a <strong>dial</strong> to continuously rate your level of <strong>sexual arousal</strong> while watching videos. The dial appears on the right side of the screen during each video.
+            </p>
+
+            <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 18px 22px; margin-bottom: 20px;">
+              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 1: Set Your Baseline (10 seconds before each video)</p>
+              <p style="font-size: 18px; margin: 0; line-height: 1.5;">Before the video starts, you will have <strong>10 seconds</strong> to set the dial to your <strong>current</strong> level of sexual arousal. Use this time to adjust the dial to where you are <strong>right now</strong>.</p>
             </div>
 
-            <div style="background: #f8f8f8; border-left: 4px solid #c0392b; padding: 15px 20px; margin-bottom: 18px;">
-              <p style="font-size: 18px; margin: 0 0 8px 0;"><strong>2. During the video</strong></p>
-              <p style="font-size: 18px; margin: 0 0 10px 0;">Move your finger <strong>UP</strong> or <strong>DOWN</strong> on the trackpad as your <strong>sexual arousal</strong> changes.</p>
-              <p style="font-size: 16px; margin: 0; color: #555;">Up = more <strong>sexual arousal</strong> · Down = less <strong>sexual arousal</strong></p>
+            <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 18px 22px; margin-bottom: 20px;">
+              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 2: Adjust Continuously During the Video</p>
+              <p style="font-size: 18px; margin: 0 0 12px 0; line-height: 1.5;">As you watch, move your finger <strong>UP</strong> or <strong>DOWN</strong> on the trackpad to adjust the dial:</p>
+              <ul style="font-size: 18px; margin: 0; padding-left: 25px; line-height: 1.8;">
+                <li><strong>Slide UP</strong> = Your sexual arousal is <strong>increasing</strong></li>
+                <li><strong>Slide DOWN</strong> = Your sexual arousal is <strong>decreasing</strong></li>
+              </ul>
+              <p style="font-size: 16px; margin: 15px 0 0 0; color: #555; line-height: 1.5;">Move the dial whenever your arousal changes—there is no right or wrong answer. Simply reflect what you are feeling in the moment.</p>
             </div>
 
-            <div style="background: #f8f8f8; border-left: 4px solid #c0392b; padding: 15px 20px; margin-bottom: 18px;">
-              <p style="font-size: 18px; margin: 0 0 8px 0;"><strong>3. Scale</strong></p>
-              <p style="font-size: 18px; margin: 0;">0 (<strong>no</strong> sexual arousal) → 10 (the <strong>highest</strong> sexual arousal)</p>
+            <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 18px 22px; margin-bottom: 20px;">
+              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 3: Understand the Scale</p>
+              <p style="font-size: 18px; margin: 0; line-height: 1.5;">
+                <strong>0</strong> = No sexual arousal at all<br>
+                <strong>10</strong> = The highest sexual arousal you can imagine
+              </p>
             </div>
 
-            <p style="font-size: 14px; color: #888; margin-top: 25px;">
-              Note: Your cursor will be hidden during playback.
+            <p style="font-size: 16px; color: #666; margin-top: 20px; line-height: 1.5;">
+              <strong>Note:</strong> Your cursor will be hidden during video playback to minimize distraction. Just keep your finger on the trackpad and slide up/down as needed.
             </p>
           </div>
-          <div style="flex-shrink: 0;">
-            <img src="assets/dial.svg" style="width: 250px; height: 250px;" alt="Arousal dial rating scale">
+          <div style="flex-shrink: 0; text-align: center;">
+            <img src="assets/dial.svg" style="width: 280px; height: 280px;" alt="Arousal dial rating scale">
+            <p style="font-size: 14px; color: #666; margin-top: 15px;">The dial will appear like this<br>on the right side of the video.</p>
           </div>
         </div>
       </div>
@@ -426,11 +438,69 @@ export async function run({
     data: { task: "fullscreen" },
   };
 
+  // Initial study overview - explains experiment structure and RA involvement
+  var study_overview = {
+    type: HtmlButtonResponsePlugin,
+    stimulus: `
+      <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
+        <div style="text-align: left; max-width: 800px;">
+          <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px; text-align: center;">Welcome to the Study</h1>
+
+          <p style="font-size: 20px; line-height: 1.8; margin-bottom: 25px;">
+            Thank you for participating. This study consists of <strong>three blocks</strong>, each involving a different approach to watching videos.
+          </p>
+
+          <p style="font-size: 20px; line-height: 1.8; margin-bottom: 25px;">
+            <strong>Here's how the study will proceed:</strong>
+          </p>
+
+          <ol style="font-size: 20px; line-height: 2; margin-bottom: 25px; padding-left: 30px;">
+            <li>You will first learn how to use the arousal dial and watch a nature video to practice.</li>
+            <li>Before each of the three blocks, you will listen to audio instructions explaining a new approach.</li>
+            <li><strong>After each audio instruction, the Research Assistant (RA) will come to you</strong> to answer any questions and ensure you understand the approach before continuing.</li>
+            <li>You will then watch a practice video followed by six main videos for that block.</li>
+          </ol>
+
+          <p style="font-size: 20px; line-height: 1.8; margin-bottom: 25px; background: #f0f7ff; padding: 20px; border-left: 4px solid #3498db;">
+            <strong>Important:</strong> The RA will return to check in with you <strong>three times</strong> during this study—once before each block begins. Please wait for them when prompted.
+          </p>
+
+          <p style="font-size: 20px; line-height: 1.8;">
+            Click "Continue" when you are ready to begin.
+          </p>
+        </div>
+      </div>
+    `,
+    choices: ["Continue"],
+    data: { task: "study_overview" },
+  };
+
+  // Nature video with dial rating (replaces simple video playback)
+  var nature_video_dial = {
+    type: VideoDialRatingPlugin,
+    stimulus: ["assets/nature.mp4"],
+    video_width: 960,
+    video_height: 540,
+    dial_start: 5,
+    sample_rate_ms: 10,
+    trial_ends_after_video: true,
+    countdown_duration: 10,
+    show_trail: false,
+    data: {
+      task: "nature_video_dial",
+      filename: "nature.mp4",
+    },
+  };
+
   // Build timeline
   timeline.push(enter_fullscreen);
   timeline.push(preload);
   timeline.push(pid_loop);
-  //timeline.push(welcome);
+
+  // Add study overview explaining RA involvement
+  timeline.push(study_overview);
+
+  // Transition screen
   timeline.push({
     type: HtmlKeyboardResponsePlugin,
     stimulus: "",
@@ -438,24 +508,24 @@ export async function run({
     trial_duration: 100,
     data: { task: "transition" },
   });
-  timeline.push(nature_instructions);
-  timeline.push(nature_video);
 
-  // Add rating questions after nature video
-  timeline.push(rating_procedure);
+  // Add dial instructions BEFORE nature video so participants know how to use it
+  timeline.push(dial_instructions);
 
-  // Brief blank screen to clear display before dial instructions
-  var pre_dial_transition = {
+  // Transition before nature video
+  timeline.push({
     type: HtmlKeyboardResponsePlugin,
     stimulus: "",
     choices: "NO_KEYS",
     trial_duration: 100,
     data: { task: "transition" },
-  };
-  timeline.push(pre_dial_transition);
+  });
 
-  // Add dial instructions before blocks begin
-  timeline.push(dial_instructions);
+  timeline.push(nature_instructions);
+  timeline.push(nature_video_dial);
+
+  // Add rating questions after nature video
+  timeline.push(rating_procedure);
 
   // SRT parsing and subtitle display helper functions
   function parseSRT(srtText) {
@@ -548,6 +618,29 @@ export async function run({
         },
         data: { task: "audio_play", condition: "neutral" },
       },
+      ra_wait: {
+        type: HtmlButtonResponsePlugin,
+        stimulus: `
+          <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+            <div style="text-align: center; max-width: 700px;">
+              <h1 style="font-size: 36px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Please Wait</h1>
+              <div style="background: #e8f4fd; border: 2px solid #3498db; border-radius: 10px; padding: 30px; margin-bottom: 30px;">
+                <p style="font-size: 24px; line-height: 1.6; margin: 0; color: #2c3e50;">
+                  The Research Assistant will now come to answer any questions you may have about the instructions you just heard.
+                </p>
+              </div>
+              <p style="font-size: 20px; color: #666; margin-bottom: 40px;">
+                Please wait here until the RA arrives.
+              </p>
+              <p style="font-size: 16px; color: #999; font-style: italic;">
+                (RA: Click "Continue" when the Q&A session is complete)
+              </p>
+            </div>
+          </div>
+        `,
+        choices: ["Continue"],
+        data: { task: "ra_wait", condition: "neutral" },
+      },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
@@ -607,6 +700,29 @@ export async function run({
         },
         data: { task: "audio_play", condition: "participatory" },
       },
+      ra_wait: {
+        type: HtmlButtonResponsePlugin,
+        stimulus: `
+          <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+            <div style="text-align: center; max-width: 700px;">
+              <h1 style="font-size: 36px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Please Wait</h1>
+              <div style="background: #e8f4fd; border: 2px solid #3498db; border-radius: 10px; padding: 30px; margin-bottom: 30px;">
+                <p style="font-size: 24px; line-height: 1.6; margin: 0; color: #2c3e50;">
+                  The Research Assistant will now come to answer any questions you may have about the instructions you just heard.
+                </p>
+              </div>
+              <p style="font-size: 20px; color: #666; margin-bottom: 40px;">
+                Please wait here until the RA arrives.
+              </p>
+              <p style="font-size: 16px; color: #999; font-style: italic;">
+                (RA: Click "Continue" when the Q&A session is complete)
+              </p>
+            </div>
+          </div>
+        `,
+        choices: ["Continue"],
+        data: { task: "ra_wait", condition: "participatory" },
+      },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
@@ -665,6 +781,29 @@ export async function run({
           });
         },
         data: { task: "audio_play", condition: "observatory" },
+      },
+      ra_wait: {
+        type: HtmlButtonResponsePlugin,
+        stimulus: `
+          <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+            <div style="text-align: center; max-width: 700px;">
+              <h1 style="font-size: 36px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Please Wait</h1>
+              <div style="background: #e8f4fd; border: 2px solid #3498db; border-radius: 10px; padding: 30px; margin-bottom: 30px;">
+                <p style="font-size: 24px; line-height: 1.6; margin: 0; color: #2c3e50;">
+                  The Research Assistant will now come to answer any questions you may have about the instructions you just heard.
+                </p>
+              </div>
+              <p style="font-size: 20px; color: #666; margin-bottom: 40px;">
+                Please wait here until the RA arrives.
+              </p>
+              <p style="font-size: 16px; color: #999; font-style: italic;">
+                (RA: Click "Continue" when the Q&A session is complete)
+              </p>
+            </div>
+          </div>
+        `,
+        choices: ["Continue"],
+        data: { task: "ra_wait", condition: "observatory" },
       },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
@@ -765,6 +904,7 @@ export async function run({
     });
     timeline.push(blockPractice[block.blockType].audio_intro);
     timeline.push(blockPractice[block.blockType].audio_play);
+    timeline.push(blockPractice[block.blockType].ra_wait); // RA Q&A session
     timeline.push(blockPractice[block.blockType].practice_intro);
     timeline.push(blockPractice[block.blockType].practice_video);
 
