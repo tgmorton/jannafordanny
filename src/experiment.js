@@ -81,11 +81,20 @@ export async function run({
     `;
   }
 
-  // Helper function to add 0-10 validation to survey-text trials
+  // Helper function to add 0-10 validation to survey-text trials with Numpad Enter support
   function addRatingValidation() {
     var form = document.getElementById("jspsych-survey-text-form");
     var input = form.querySelector('input[type="text"]');
     var submitButton = document.getElementById("jspsych-survey-text-next");
+
+    // Hide the submit button - we'll use Enter key instead
+    submitButton.style.display = "none";
+
+    // Add instruction for Enter key
+    var enterInstruction = document.createElement("p");
+    enterInstruction.style.cssText = "font-size: 16px; color: #666; margin-top: 20px; text-align: center;";
+    enterInstruction.textContent = "Press Enter on the numpad to continue.";
+    submitButton.parentNode.appendChild(enterInstruction);
 
     // Add error message container (hidden initially)
     var errorDiv = document.createElement("div");
@@ -95,12 +104,31 @@ export async function run({
     errorDiv.textContent = "Please enter a number between 0 and 10.";
     submitButton.parentNode.appendChild(errorDiv);
 
-    // Replace the button with a clone to remove any existing listeners
-    var newButton = submitButton.cloneNode(true);
-    submitButton.parentNode.replaceChild(newButton, submitButton);
+    // Function to validate and submit
+    function validateAndSubmit() {
+      var value = parseInt(input.value);
+      if (isNaN(value) || value < 0 || value > 10) {
+        errorDiv.style.display = "block";
+        input.focus();
+        return false;
+      }
+      // Valid - hide error and click submit
+      errorDiv.style.display = "none";
+      submitButton.click();
+      return true;
+    }
 
-    // Add validation to the new button
-    newButton.addEventListener("click", function (e) {
+    // Add Enter key listener (both regular and numpad Enter)
+    input.addEventListener("keydown", function(e) {
+      // Enter key (code 13) or NumpadEnter
+      if (e.key === "Enter" || e.code === "NumpadEnter") {
+        e.preventDefault();
+        validateAndSubmit();
+      }
+    });
+
+    // Also allow clicking the button if someone finds it
+    submitButton.addEventListener("click", function (e) {
       var value = parseInt(input.value);
       if (isNaN(value) || value < 0 || value > 10) {
         e.preventDefault();
@@ -109,7 +137,6 @@ export async function run({
         input.focus();
         return false;
       }
-      // Valid - hide error and let it proceed
       errorDiv.style.display = "none";
     });
   }
@@ -348,15 +375,20 @@ export async function run({
 
   // Nature video instructions
   var nature_instructions = {
-    type: HtmlButtonResponsePlugin,
+    type: HtmlKeyboardResponsePlugin,
     stimulus: `
       <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
-        <p style="font-size: 20px; line-height: 1.6; text-align: center; max-width: 750px;">
-          You will now watch a nature video. Take this moment to get comfortable, relax your shoulders, breathe normally, and simply watch the video.
-        </p>
+        <div style="text-align: center; max-width: 750px;">
+          <p style="font-size: 20px; line-height: 1.6;">
+            You will now watch a nature video. Take this moment to get comfortable, relax your shoulders, breathe normally, and simply watch the video.
+          </p>
+          <p style="font-size: 16px; color: #888; margin-top: 30px;">
+            Press <strong>N</strong> to continue.
+          </p>
+        </div>
       </div>
     `,
-    choices: ["Continue"],
+    choices: ["n", "N"],
     data: { task: "nature_instructions" },
   };
 
@@ -378,54 +410,161 @@ export async function run({
   };
 
   // Dial instructions screen - shown at the beginning before nature video
+  // Interactive dial for instructions page
+  function createInteractiveDialHTML() {
+    return `
+      <div id="instruction-dial-container" style="position: relative; width: 280px; height: 280px;">
+        <svg id="instruction-dial-svg" width="280" height="280" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="instrKnobGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+              <stop offset="0%" style="stop-color:#444;stop-opacity:1" />
+              <stop offset="85%" style="stop-color:#111;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#000;stop-opacity:1" />
+            </radialGradient>
+          </defs>
+          <circle cx="150" cy="150" r="145" fill="#050505" stroke="#333" stroke-width="2" />
+          <g>
+            <line x1="58.1" y1="241.9" x2="68.7" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="26.4" y1="190.2" x2="40.6" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="21.6" y1="129.7" x2="36.4" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="44.8" y1="73.6" x2="57.0" y2="82.4" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="91.0" y1="34.2" x2="97.8" y2="47.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="150.0" y1="20.0" x2="150.0" y2="35.0" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="209.0" y1="34.2" x2="202.2" y2="47.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="255.2" y1="73.6" x2="243.0" y2="82.4" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="278.4" y1="129.7" x2="263.6" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="273.6" y1="190.2" x2="259.4" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <line x1="241.9" y1="241.9" x2="231.3" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
+          </g>
+          <g>
+            <text x="82.8" y="217.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">0</text>
+            <text x="59.6" y="179.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">1</text>
+            <text x="56.2" y="135.1" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">2</text>
+            <text x="73.1" y="94.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">3</text>
+            <text x="106.9" y="65.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">4</text>
+            <text x="150.0" y="55.0" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">5</text>
+            <text x="193.1" y="65.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">6</text>
+            <text x="226.9" y="94.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">7</text>
+            <text x="243.8" y="135.1" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">8</text>
+            <text x="240.4" y="179.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">9</text>
+            <text x="217.2" y="217.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">10</text>
+          </g>
+          <circle cx="150" cy="150" r="75" fill="#222" stroke="#111" stroke-width="1" />
+          <circle cx="150" cy="150" r="65" fill="url(#instrKnobGradient)" stroke="#000" stroke-width="2" />
+          <circle cx="150" cy="150" r="60" fill="none" stroke="#333" stroke-width="1" opacity="0.5" />
+          <g id="instruction-dial-pointer" style="transform-origin: 150px 150px;">
+            <line x1="150" y1="130" x2="150" y2="95" stroke="white" stroke-width="4" stroke-linecap="round" />
+          </g>
+        </svg>
+        <p id="dial-value-display" style="font-size: 18px; color: #333; margin-top: 10px; text-align: center; font-weight: bold;">Current Value: 5</p>
+      </div>
+    `;
+  }
+
   var dial_instructions = {
-    type: HtmlButtonResponsePlugin,
+    type: HtmlKeyboardResponsePlugin,
     stimulus: `
       <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
         <div style="display: flex; align-items: center; gap: 60px; max-width: 1200px;">
           <div style="flex: 1; text-align: left;">
-            <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px;">How to Use the Sexual Arousal Dial</h1>
+            <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 20px;">How to Use the Sexual Arousal Dial</h1>
 
-            <p style="font-size: 18px; line-height: 1.6; margin-bottom: 25px;">
-              Throughout this study, you will use a <strong>dial</strong> to continuously rate your level of <strong>sexual arousal</strong> while watching videos. The dial appears on the right side of the screen during each video.
+            <p style="font-size: 18px; line-height: 1.6; margin-bottom: 20px; background: #f0f0f0; padding: 15px; border-radius: 8px;">
+              <strong>By sexual arousal we mean your awareness of your bodily response to sexual stimuli.</strong>
             </p>
 
-            <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 18px 22px; margin-bottom: 20px;">
-              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 1: Set Your Baseline (10 seconds before each video)</p>
-              <p style="font-size: 18px; margin: 0; line-height: 1.5;">Before the video starts, you will have <strong>10 seconds</strong> to set the dial to your <strong>current</strong> level of sexual arousal. Use this time to adjust the dial to where you are <strong>right now</strong>.</p>
+            <p style="font-size: 18px; line-height: 1.6; margin-bottom: 25px;">
+              Throughout this study, you will use a <strong>dial</strong> to continuously rate your level of <strong>sexual arousal</strong> while watching videos. The dial appears at the top of the screen during each video.
+            </p>
+
+            <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 18px 22px; margin-bottom: 20px;">
+              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 1: Understand the Scale</p>
+              <p style="font-size: 18px; margin: 0; line-height: 1.5;">
+                <strong>0</strong> = No sexual arousal at all<br>
+                <strong>10</strong> = Highest sexual arousal you have experienced
+              </p>
             </div>
 
             <div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 18px 22px; margin-bottom: 20px;">
               <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 2: Adjust Continuously During the Video</p>
-              <p style="font-size: 18px; margin: 0 0 12px 0; line-height: 1.5;">As you watch, move your finger <strong>UP</strong> or <strong>DOWN</strong> on the trackpad to adjust the dial:</p>
+              <p style="font-size: 18px; margin: 0 0 12px 0; line-height: 1.5;">As you watch, <strong>turn the dial</strong> to adjust your rating:</p>
               <ul style="font-size: 18px; margin: 0; padding-left: 25px; line-height: 1.8;">
-                <li><strong>Slide UP</strong> = Your sexual arousal is <strong>increasing</strong></li>
-                <li><strong>Slide DOWN</strong> = Your sexual arousal is <strong>decreasing</strong></li>
+                <li><strong>Turn RIGHT</strong> = Your sexual arousal is <strong>increasing</strong></li>
+                <li><strong>Turn LEFT</strong> = Your sexual arousal is <strong>decreasing</strong></li>
               </ul>
-              <p style="font-size: 16px; margin: 15px 0 0 0; color: #555; line-height: 1.5;">Move the dial whenever your arousal changes—there is no right or wrong answer. Simply reflect what you are feeling in the moment.</p>
+              <p style="font-size: 16px; margin: 15px 0 0 0; color: #555; line-height: 1.5;">Turn the dial when you notice a change in your sexual arousal, however slight. There is no right or wrong answer. Simply reflect what you are feeling in the moment.</p>
             </div>
 
-            <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 18px 22px; margin-bottom: 20px;">
-              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 3: Understand the Scale</p>
-              <p style="font-size: 18px; margin: 0; line-height: 1.5;">
-                <strong>0</strong> = No sexual arousal at all<br>
-                <strong>10</strong> = The highest sexual arousal you can imagine
-              </p>
+            <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 18px 22px; margin-bottom: 20px;">
+              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 3: Set Your Baseline (10 seconds before each video)</p>
+              <p style="font-size: 18px; margin: 0; line-height: 1.5;">Before the video starts, you will have <strong>10 seconds</strong> to set the dial to your <strong>current</strong> level of sexual arousal. Use this time to adjust the dial to where you are <strong>right now</strong>.</p>
             </div>
 
-            <p style="font-size: 16px; color: #666; margin-top: 20px; line-height: 1.5;">
-              <strong>Note:</strong> Your cursor will be hidden during video playback to minimize distraction. Just keep your finger on the trackpad and slide up/down as needed.
+            <p style="font-size: 16px; color: #555; margin-top: 20px; line-height: 1.5;">
+              <strong>Try it now!</strong> Turn the dial on the right to see how it responds.
+            </p>
+
+            <p style="font-size: 16px; color: #888; margin-top: 15px;">
+              Press <strong>N</strong> to continue when ready.
             </p>
           </div>
           <div style="flex-shrink: 0; text-align: center;">
-            <img src="assets/dial.svg" style="width: 280px; height: 280px;" alt="Arousal dial rating scale">
-            <p style="font-size: 14px; color: #666; margin-top: 15px;">The dial will appear like this<br>on the right side of the video.</p>
+            ${createInteractiveDialHTML()}
+            <p style="font-size: 14px; color: #666; margin-top: 15px;">The dial will appear like this<br>at the top of the video.</p>
           </div>
         </div>
       </div>
     `,
-    choices: ["Continue"],
+    choices: ["n", "N"],
     data: { task: "dial_instructions" },
+    on_load: function() {
+      // Make the dial interactive
+      var dialPointer = document.getElementById("instruction-dial-pointer");
+      var dialValueDisplay = document.getElementById("dial-value-display");
+      var currentValue = 5;
+      var angleStart = 225;
+      var angleEnd = -45;
+      var angleRange = angleStart - angleEnd;
+
+      function valueToAngle(value) {
+        var normalized = value / 10;
+        return angleStart - (normalized * angleRange);
+      }
+
+      function updateDial(value) {
+        currentValue = Math.max(0, Math.min(10, value));
+        var angle = valueToAngle(currentValue);
+        var rotation = angle - 90;
+        dialPointer.style.transform = "rotate(" + (-rotation) + "deg)";
+        dialValueDisplay.textContent = "Current Value: " + Math.round(currentValue * 10) / 10;
+      }
+
+      // Track mouse/touch position for dial control
+      var handleMove = function(e) {
+        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        var windowHeight = window.innerHeight;
+        var margin = windowHeight * 0.3;
+        var usableHeight = windowHeight - (margin * 2);
+
+        var newValue;
+        if (clientY <= margin) {
+          newValue = 10;
+        } else if (clientY >= windowHeight - margin) {
+          newValue = 0;
+        } else {
+          var positionInUsable = clientY - margin;
+          var normalizedPosition = 1 - (positionInUsable / usableHeight);
+          newValue = normalizedPosition * 10;
+        }
+        updateDial(newValue);
+      };
+
+      document.addEventListener("mousemove", handleMove);
+      document.addEventListener("touchmove", handleMove, { passive: true });
+
+      // Initialize dial position
+      updateDial(5);
+    }
   };
 
   // Fullscreen trial
@@ -440,7 +579,7 @@ export async function run({
 
   // Initial study overview - explains experiment structure and RA involvement
   var study_overview = {
-    type: HtmlButtonResponsePlugin,
+    type: HtmlKeyboardResponsePlugin,
     stimulus: `
       <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
         <div style="text-align: left; max-width: 800px;">
@@ -466,12 +605,12 @@ export async function run({
           </p>
 
           <p style="font-size: 20px; line-height: 1.8;">
-            Click "Continue" when you are ready to begin.
+            Press <strong>N</strong> when you are ready to begin.
           </p>
         </div>
       </div>
     `,
-    choices: ["Continue"],
+    choices: ["n", "N"],
     data: { task: "study_overview" },
   };
 
@@ -492,9 +631,172 @@ export async function run({
     },
   };
 
-  // Build timeline
-  timeline.push(enter_fullscreen);
+  // Audio test slide - plays a short audio to test headphones
+  var audio_test = {
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: `
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+        <div style="text-align: center; max-width: 700px;">
+          <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Audio Test</h1>
+          <audio id="test-audio" controls style="margin-bottom: 30px;">
+            <source src="assets/natural.mp3" type="audio/mpeg">
+          </audio>
+          <div style="background: #e8f4fd; border: 2px solid #3498db; border-radius: 10px; padding: 30px; margin-bottom: 30px;">
+            <p style="font-size: 20px; line-height: 1.6; margin: 0; color: #2c3e50;">
+              Please use the audio player above to test that your headphones are working correctly.
+              Adjust the volume to a comfortable level.
+            </p>
+          </div>
+          <p style="font-size: 18px; color: #555; margin-bottom: 20px;">
+            If you can hear the audio clearly, press <strong>N</strong> to continue to the dial test.
+          </p>
+          <p style="font-size: 16px; color: #999; font-style: italic;">
+            (RA: If there are audio issues, please assist the participant before continuing)
+          </p>
+        </div>
+      </div>
+    `,
+    choices: ["n", "N"],
+    data: { task: "audio_test" },
+    on_load: function() {
+      // Stop audio when trial ends
+      var audio = document.getElementById("test-audio");
+      if (audio) {
+        audio.volume = 0.5; // Set moderate default volume
+      }
+    }
+  };
+
+  // Dial test slide - allows participant to try the dial before starting
+  var dial_test = {
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: `
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+        <div style="display: flex; align-items: center; gap: 60px; max-width: 1000px;">
+          <div style="flex: 1; text-align: left;">
+            <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Dial Test</h1>
+            <div style="background: #e8f5e9; border: 2px solid #4caf50; border-radius: 10px; padding: 25px; margin-bottom: 25px;">
+              <p style="font-size: 20px; line-height: 1.6; margin: 0; color: #2c3e50;">
+                Please test the dial on the right by <strong>turning it left and right</strong>.
+                Watch the pointer move and the value change as you adjust the dial.
+              </p>
+            </div>
+            <p style="font-size: 18px; color: #555; margin-bottom: 20px; line-height: 1.6;">
+              The dial should respond smoothly to your movements. You will use this dial throughout the study to rate your arousal level while watching videos.
+            </p>
+            <p style="font-size: 18px; color: #555; margin-bottom: 30px;">
+              When you are comfortable with how the dial works, press <strong>N</strong> to continue.
+            </p>
+            <p style="font-size: 16px; color: #999; font-style: italic;">
+              (RA: If the dial is not responding, please check the equipment before continuing)
+            </p>
+          </div>
+          <div style="flex-shrink: 0; text-align: center;">
+            <div id="test-dial-container" style="position: relative; width: 280px; height: 280px;">
+              <svg id="test-dial-svg" width="280" height="280" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="testKnobGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                    <stop offset="0%" style="stop-color:#444;stop-opacity:1" />
+                    <stop offset="85%" style="stop-color:#111;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#000;stop-opacity:1" />
+                  </radialGradient>
+                </defs>
+                <circle cx="150" cy="150" r="145" fill="#050505" stroke="#333" stroke-width="2" />
+                <g>
+                  <line x1="58.1" y1="241.9" x2="68.7" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="26.4" y1="190.2" x2="40.6" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="21.6" y1="129.7" x2="36.4" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="44.8" y1="73.6" x2="57.0" y2="82.4" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="91.0" y1="34.2" x2="97.8" y2="47.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="150.0" y1="20.0" x2="150.0" y2="35.0" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="209.0" y1="34.2" x2="202.2" y2="47.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="255.2" y1="73.6" x2="243.0" y2="82.4" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="278.4" y1="129.7" x2="263.6" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="273.6" y1="190.2" x2="259.4" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <line x1="241.9" y1="241.9" x2="231.3" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
+                </g>
+                <g>
+                  <text x="82.8" y="217.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">0</text>
+                  <text x="59.6" y="179.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">1</text>
+                  <text x="56.2" y="135.1" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">2</text>
+                  <text x="73.1" y="94.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">3</text>
+                  <text x="106.9" y="65.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">4</text>
+                  <text x="150.0" y="55.0" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">5</text>
+                  <text x="193.1" y="65.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">6</text>
+                  <text x="226.9" y="94.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">7</text>
+                  <text x="243.8" y="135.1" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">8</text>
+                  <text x="240.4" y="179.4" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">9</text>
+                  <text x="217.2" y="217.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">10</text>
+                </g>
+                <circle cx="150" cy="150" r="75" fill="#222" stroke="#111" stroke-width="1" />
+                <circle cx="150" cy="150" r="65" fill="url(#testKnobGradient)" stroke="#000" stroke-width="2" />
+                <circle cx="150" cy="150" r="60" fill="none" stroke="#333" stroke-width="1" opacity="0.5" />
+                <g id="test-dial-pointer" style="transform-origin: 150px 150px;">
+                  <line x1="150" y1="130" x2="150" y2="95" stroke="white" stroke-width="4" stroke-linecap="round" />
+                </g>
+              </svg>
+              <p id="test-dial-value" style="font-size: 24px; color: #333; margin-top: 15px; text-align: center; font-weight: bold;">Current Value: 5</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+    choices: ["n", "N"],
+    data: { task: "dial_test" },
+    on_load: function() {
+      // Make the dial interactive
+      var dialPointer = document.getElementById("test-dial-pointer");
+      var dialValueDisplay = document.getElementById("test-dial-value");
+      var currentValue = 5;
+      var angleStart = 225;
+      var angleEnd = -45;
+      var angleRange = angleStart - angleEnd;
+
+      function valueToAngle(value) {
+        var normalized = value / 10;
+        return angleStart - (normalized * angleRange);
+      }
+
+      function updateDial(value) {
+        currentValue = Math.max(0, Math.min(10, value));
+        var angle = valueToAngle(currentValue);
+        var rotation = angle - 90;
+        dialPointer.style.transform = "rotate(" + (-rotation) + "deg)";
+        dialValueDisplay.textContent = "Current Value: " + Math.round(currentValue * 10) / 10;
+      }
+
+      // Track mouse/touch position for dial control
+      var handleMove = function(e) {
+        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        var windowHeight = window.innerHeight;
+        var margin = windowHeight * 0.3;
+        var usableHeight = windowHeight - (margin * 2);
+
+        var newValue;
+        if (clientY <= margin) {
+          newValue = 10;
+        } else if (clientY >= windowHeight - margin) {
+          newValue = 0;
+        } else {
+          var positionInUsable = clientY - margin;
+          var normalizedPosition = 1 - (positionInUsable / usableHeight);
+          newValue = normalizedPosition * 10;
+        }
+        updateDial(newValue);
+      };
+
+      document.addEventListener("mousemove", handleMove);
+      document.addEventListener("touchmove", handleMove, { passive: true });
+
+      // Initialize dial position
+      updateDial(5);
+    }
+  };
+
+  // Build timeline - removed fullscreen entry, now starts with preload and equipment tests
   timeline.push(preload);
+  timeline.push(audio_test);
+  timeline.push(dial_test);
   timeline.push(pid_loop);
 
   // Add study overview explaining RA involvement
@@ -527,7 +829,7 @@ export async function run({
   // Add rating questions after nature video
   timeline.push(rating_procedure);
 
-  // SRT parsing and subtitle display helper functions
+  // SRT parsing and karaoke-style subtitle display helper functions
   function parseSRT(srtText) {
     var subtitles = [];
     var blocks = srtText.trim().split(/\n\n+/);
@@ -556,39 +858,122 @@ export async function run({
     return subtitles;
   }
 
-  function setupSubtitles(audioElement, subtitles, subtitleElement) {
+  // Karaoke-style subtitle display - shows blocks of text with current portion highlighted
+  function setupKaraokeSubtitles(audioElement, subtitles, subtitleElement) {
     var currentIndex = -1;
+    var CONTEXT_SIZE = 3; // Number of subtitles to show before and after current
+
+    function renderKaraokeText(currentIdx, subtitles) {
+      if (currentIdx < 0 || currentIdx >= subtitles.length) {
+        return "";
+      }
+
+      // Calculate range of subtitles to display
+      var startIdx = Math.max(0, currentIdx - CONTEXT_SIZE);
+      var endIdx = Math.min(subtitles.length - 1, currentIdx + CONTEXT_SIZE);
+
+      var html = "";
+      for (var i = startIdx; i <= endIdx; i++) {
+        var text = subtitles[i].text;
+        if (i === currentIdx) {
+          // Current subtitle - highlighted
+          html += '<span style="background-color: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">' + text + '</span> ';
+        } else if (i < currentIdx) {
+          // Past subtitles - dimmed
+          html += '<span style="color: #888;">' + text + '</span> ';
+        } else {
+          // Future subtitles - normal but slightly dimmed
+          html += '<span style="color: #555;">' + text + '</span> ';
+        }
+      }
+      return html;
+    }
+
     audioElement.addEventListener("timeupdate", function () {
       var currentTime = audioElement.currentTime * 1000;
       var found = false;
+
       for (var i = 0; i < subtitles.length; i++) {
-        if (
-          currentTime >= subtitles[i].start &&
-          currentTime <= subtitles[i].end
-        ) {
+        if (currentTime >= subtitles[i].start && currentTime <= subtitles[i].end) {
           if (currentIndex !== i) {
-            subtitleElement.textContent = subtitles[i].text;
+            subtitleElement.innerHTML = renderKaraokeText(i, subtitles);
             currentIndex = i;
           }
           found = true;
           break;
         }
       }
-      if (!found && currentIndex !== -1) {
-        subtitleElement.textContent = "";
-        currentIndex = -1;
+
+      // If between subtitles, show the last displayed block
+      if (!found && currentIndex >= 0) {
+        // Find the next subtitle
+        for (var j = 0; j < subtitles.length; j++) {
+          if (currentTime < subtitles[j].start) {
+            // We're between currentIndex and j, keep showing current context
+            break;
+          }
+        }
       }
     });
+
+    // Initialize with first few subtitles
+    if (subtitles.length > 0) {
+      subtitleElement.innerHTML = renderKaraokeText(0, subtitles);
+    }
+  }
+
+  // Legacy function for backwards compatibility
+  function setupSubtitles(audioElement, subtitles, subtitleElement) {
+    setupKaraokeSubtitles(audioElement, subtitles, subtitleElement);
   }
 
   // Block practice components for each condition
+  // Helper to get display name for condition
+  function getConditionDisplayName(condition) {
+    var names = {
+      neutral: "Natural",
+      participatory: "Participating",
+      observatory: "Observing"
+    };
+    return names[condition] || condition;
+  }
+
+  // Store audio file paths for repeat functionality
+  var audioFiles = {
+    neutral: "assets/natural.mp3",
+    participatory: "assets/participate.mp3",
+    observatory: "assets/observe.mp3"
+  };
+
+  var srtFiles = {
+    neutral: "assets/natural.mp3.srt",
+    participatory: "assets/participate.mp3.srt",
+    observatory: "assets/observe.mp3.srt"
+  };
+
+  // Variable to store last played audio info for repeat
+  var lastAudioCondition = "";
+
   var blockPractice = {
     neutral: {
       audio_intro: {
-        type: HtmlButtonResponsePlugin,
-        stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; padding: 40px;"><p style="font-size: 20px; text-align: center;">You will now listen to audio instructions that will teach you how to apply a natural approach.</p></div>',
-        choices: ["Continue"],
+        type: HtmlKeyboardResponsePlugin,
+        stimulus: `
+          <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
+            <div style="text-align: center; max-width: 750px;">
+              <p style="font-size: 20px; text-align: center; margin-bottom: 25px;">
+                You will now listen to audio instructions that will teach you how to apply a <strong>natural</strong> approach.
+              </p>
+              <p style="font-size: 18px; text-align: center; color: #555; line-height: 1.6;">
+                As the audio plays, you may follow along with the words on the screen or on your own copy. If you have any questions or anything is unclear, feel free to jot down notes on the sheet.
+              </p>
+              <p style="font-size: 16px; color: #888; margin-top: 30px;">
+                Press <strong>N</strong> to continue.
+              </p>
+            </div>
+          </div>
+        `,
+        choices: ["n", "N"],
         data: { task: "audio_intro", condition: "neutral" },
       },
       audio_play: {
@@ -596,12 +981,13 @@ export async function run({
         stimulus: `
           <audio id="audio-instruction" autoplay><source src="assets/natural.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
-            <p style="font-size: 16px; text-align: center; color: #666; margin-bottom: 20px;">Audio instructions in progress...</p>
-            <p id="subtitle-display" style="font-size: 22px; text-align: center; max-width: 800px; line-height: 1.6; min-height: 60px;"></p>
+            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Natural Instructions Now Playing</h2>
+            <div id="subtitle-display" style="font-size: 20px; text-align: center; max-width: 900px; line-height: 1.8; min-height: 120px; padding: 20px; background: #f9f9f9; border-radius: 10px;"></div>
           </div>
         `,
         choices: ["n", "N"],
         on_load: function () {
+          lastAudioCondition = "neutral";
           var audio = document.getElementById("audio-instruction");
           var subtitleEl = document.getElementById("subtitle-display");
           fetch("assets/natural.mp3.srt")
@@ -610,7 +996,7 @@ export async function run({
             })
             .then(function (srtText) {
               var subtitles = parseSRT(srtText);
-              setupSubtitles(audio, subtitles, subtitleEl);
+              setupKaraokeSubtitles(audio, subtitles, subtitleEl);
             });
           audio.addEventListener("ended", function () {
             jsPsych.finishTrial();
@@ -619,7 +1005,7 @@ export async function run({
         data: { task: "audio_play", condition: "neutral" },
       },
       ra_wait: {
-        type: HtmlButtonResponsePlugin,
+        type: HtmlKeyboardResponsePlugin,
         stimulus: `
           <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
             <div style="text-align: center; max-width: 700px;">
@@ -633,18 +1019,24 @@ export async function run({
                 Please wait here until the RA arrives.
               </p>
               <p style="font-size: 16px; color: #999; font-style: italic;">
-                (RA: Click "Continue" when the Q&A session is complete)
+                (RA: Press <strong>N</strong> when the Q&A session is complete, or press <strong>R</strong> to repeat the audio instructions)
               </p>
             </div>
           </div>
         `,
-        choices: ["Continue"],
+        choices: ["n", "N", "r", "R"],
         data: { task: "ra_wait", condition: "neutral" },
+        on_finish: function(data) {
+          // Check if R was pressed to repeat audio
+          if (data.response === "r" || data.response === "R") {
+            data.repeat_audio = true;
+          }
+        }
       },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.</p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press <strong>N</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
         trial_duration: 5000,
         data: { task: "practice_intro", condition: "neutral" },
@@ -667,10 +1059,23 @@ export async function run({
     },
     participatory: {
       audio_intro: {
-        type: HtmlButtonResponsePlugin,
-        stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; padding: 40px;"><p style="font-size: 20px; text-align: center;">You will now listen to audio instructions that will teach you how to apply a participating approach.</p></div>',
-        choices: ["Continue"],
+        type: HtmlKeyboardResponsePlugin,
+        stimulus: `
+          <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
+            <div style="text-align: center; max-width: 750px;">
+              <p style="font-size: 20px; text-align: center; margin-bottom: 25px;">
+                You will now listen to audio instructions that will teach you how to apply a <strong>participating</strong> approach.
+              </p>
+              <p style="font-size: 18px; text-align: center; color: #555; line-height: 1.6;">
+                As the audio plays, you may follow along with the words on the screen or on your own copy. If you have any questions or anything is unclear, feel free to jot down notes on the sheet.
+              </p>
+              <p style="font-size: 16px; color: #888; margin-top: 30px;">
+                Press <strong>N</strong> to continue.
+              </p>
+            </div>
+          </div>
+        `,
+        choices: ["n", "N"],
         data: { task: "audio_intro", condition: "participatory" },
       },
       audio_play: {
@@ -678,12 +1083,13 @@ export async function run({
         stimulus: `
           <audio id="audio-instruction" autoplay><source src="assets/participate.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
-            <p style="font-size: 16px; text-align: center; color: #666; margin-bottom: 20px;">Audio instructions in progress...</p>
-            <p id="subtitle-display" style="font-size: 22px; text-align: center; max-width: 800px; line-height: 1.6; min-height: 60px;"></p>
+            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Participating Instructions Now Playing</h2>
+            <div id="subtitle-display" style="font-size: 20px; text-align: center; max-width: 900px; line-height: 1.8; min-height: 120px; padding: 20px; background: #f9f9f9; border-radius: 10px;"></div>
           </div>
         `,
         choices: ["n", "N"],
         on_load: function () {
+          lastAudioCondition = "participatory";
           var audio = document.getElementById("audio-instruction");
           var subtitleEl = document.getElementById("subtitle-display");
           fetch("assets/participate.mp3.srt")
@@ -692,7 +1098,7 @@ export async function run({
             })
             .then(function (srtText) {
               var subtitles = parseSRT(srtText);
-              setupSubtitles(audio, subtitles, subtitleEl);
+              setupKaraokeSubtitles(audio, subtitles, subtitleEl);
             });
           audio.addEventListener("ended", function () {
             jsPsych.finishTrial();
@@ -701,7 +1107,7 @@ export async function run({
         data: { task: "audio_play", condition: "participatory" },
       },
       ra_wait: {
-        type: HtmlButtonResponsePlugin,
+        type: HtmlKeyboardResponsePlugin,
         stimulus: `
           <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
             <div style="text-align: center; max-width: 700px;">
@@ -715,18 +1121,23 @@ export async function run({
                 Please wait here until the RA arrives.
               </p>
               <p style="font-size: 16px; color: #999; font-style: italic;">
-                (RA: Click "Continue" when the Q&A session is complete)
+                (RA: Press <strong>N</strong> when the Q&A session is complete, or press <strong>R</strong> to repeat the audio instructions)
               </p>
             </div>
           </div>
         `,
-        choices: ["Continue"],
+        choices: ["n", "N", "r", "R"],
         data: { task: "ra_wait", condition: "participatory" },
+        on_finish: function(data) {
+          if (data.response === "r" || data.response === "R") {
+            data.repeat_audio = true;
+          }
+        }
       },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.</p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press <strong>N</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
         trial_duration: 5000,
         data: { task: "practice_intro", condition: "participatory" },
@@ -749,10 +1160,23 @@ export async function run({
     },
     observatory: {
       audio_intro: {
-        type: HtmlButtonResponsePlugin,
-        stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; padding: 40px;"><p style="font-size: 20px; text-align: center;">You will now listen to audio instructions that will teach you how to apply an observing approach.</p></div>',
-        choices: ["Continue"],
+        type: HtmlKeyboardResponsePlugin,
+        stimulus: `
+          <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
+            <div style="text-align: center; max-width: 750px;">
+              <p style="font-size: 20px; text-align: center; margin-bottom: 25px;">
+                You will now listen to audio instructions that will teach you how to apply an <strong>observing</strong> approach.
+              </p>
+              <p style="font-size: 18px; text-align: center; color: #555; line-height: 1.6;">
+                As the audio plays, you may follow along with the words on the screen or on your own copy. If you have any questions or anything is unclear, feel free to jot down notes on the sheet.
+              </p>
+              <p style="font-size: 16px; color: #888; margin-top: 30px;">
+                Press <strong>N</strong> to continue.
+              </p>
+            </div>
+          </div>
+        `,
+        choices: ["n", "N"],
         data: { task: "audio_intro", condition: "observatory" },
       },
       audio_play: {
@@ -760,12 +1184,13 @@ export async function run({
         stimulus: `
           <audio id="audio-instruction" autoplay><source src="assets/observe.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
-            <p style="font-size: 16px; text-align: center; color: #666; margin-bottom: 20px;">Audio instructions in progress...</p>
-            <p id="subtitle-display" style="font-size: 22px; text-align: center; max-width: 800px; line-height: 1.6; min-height: 60px;"></p>
+            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Observing Instructions Now Playing</h2>
+            <div id="subtitle-display" style="font-size: 20px; text-align: center; max-width: 900px; line-height: 1.8; min-height: 120px; padding: 20px; background: #f9f9f9; border-radius: 10px;"></div>
           </div>
         `,
         choices: ["n", "N"],
         on_load: function () {
+          lastAudioCondition = "observatory";
           var audio = document.getElementById("audio-instruction");
           var subtitleEl = document.getElementById("subtitle-display");
           fetch("assets/observe.mp3.srt")
@@ -774,7 +1199,7 @@ export async function run({
             })
             .then(function (srtText) {
               var subtitles = parseSRT(srtText);
-              setupSubtitles(audio, subtitles, subtitleEl);
+              setupKaraokeSubtitles(audio, subtitles, subtitleEl);
             });
           audio.addEventListener("ended", function () {
             jsPsych.finishTrial();
@@ -783,7 +1208,7 @@ export async function run({
         data: { task: "audio_play", condition: "observatory" },
       },
       ra_wait: {
-        type: HtmlButtonResponsePlugin,
+        type: HtmlKeyboardResponsePlugin,
         stimulus: `
           <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
             <div style="text-align: center; max-width: 700px;">
@@ -797,18 +1222,23 @@ export async function run({
                 Please wait here until the RA arrives.
               </p>
               <p style="font-size: 16px; color: #999; font-style: italic;">
-                (RA: Click "Continue" when the Q&A session is complete)
+                (RA: Press <strong>N</strong> when the Q&A session is complete, or press <strong>R</strong> to repeat the audio instructions)
               </p>
             </div>
           </div>
         `,
-        choices: ["Continue"],
+        choices: ["n", "N", "r", "R"],
         data: { task: "ra_wait", condition: "observatory" },
+        on_finish: function(data) {
+          if (data.response === "r" || data.response === "R") {
+            data.repeat_audio = true;
+          }
+        }
       },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.</p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press <strong>N</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
         trial_duration: 5000,
         data: { task: "practice_intro", condition: "observatory" },
@@ -831,13 +1261,16 @@ export async function run({
     },
   };
 
-  // Condition instructions
+  // Condition instructions - timed at 45 seconds with approach reminder at top
   var conditionInstructions = {
     neutral: {
-      type: HtmlButtonResponsePlugin,
+      type: HtmlKeyboardResponsePlugin,
       stimulus: `
-        <div style="background-color: white; display: flex; align-items: center; justify-content: center; padding: 40px;">
+        <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
           <div style="font-family: Arial, Helvetica, sans-serif; text-align: center; max-width: 750px; color: black;">
+            <p style="font-size: 22px; font-weight: bold; margin-bottom: 30px; color: #2c3e50; background: #e8f4fd; padding: 20px; border-radius: 10px;">
+              Now you will watch a series of six videos on your own while applying the <strong>natural</strong> approach.
+            </p>
             <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px; color: black;">Natural Approach</h1>
             <p style="font-size: 20px; line-height: 1.6; margin-bottom: 40px; color: black;">
               Please watch the video just as you normally would at home. You're in a private space with no cameras or observers.
@@ -848,14 +1281,18 @@ export async function run({
           </div>
         </div>
       `,
-      choices: ["Continue"],
+      choices: "NO_KEYS",
+      trial_duration: 45000,
       data: { task: "condition_instructions", condition: "neutral" },
     },
     observatory: {
-      type: HtmlButtonResponsePlugin,
+      type: HtmlKeyboardResponsePlugin,
       stimulus: `
-        <div style="background-color: white; display: flex; align-items: center; justify-content: center; padding: 40px;">
+        <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
           <div style="font-family: Arial, Helvetica, sans-serif; text-align: center; max-width: 750px; color: black;">
+            <p style="font-size: 22px; font-weight: bold; margin-bottom: 30px; color: #2c3e50; background: #e8f4fd; padding: 20px; border-radius: 10px;">
+              Now you will watch a series of six videos on your own while applying the <strong>observing</strong> approach.
+            </p>
             <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px; color: black;">Observing Approach</h1>
             <p style="font-size: 20px; line-height: 1.6; margin-bottom: 40px; color: black;">
               As you watch the video, observe both the scene and your own responses as they happen in the present moment.
@@ -866,14 +1303,18 @@ export async function run({
           </div>
         </div>
       `,
-      choices: ["Continue"],
+      choices: "NO_KEYS",
+      trial_duration: 45000,
       data: { task: "condition_instructions", condition: "observatory" },
     },
     participatory: {
-      type: HtmlButtonResponsePlugin,
+      type: HtmlKeyboardResponsePlugin,
       stimulus: `
-        <div style="background-color: white; display: flex; align-items: center; justify-content: center; padding: 40px;">
+        <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
           <div style="font-family: Arial, Helvetica, sans-serif; text-align: center; max-width: 750px; color: black;">
+            <p style="font-size: 22px; font-weight: bold; margin-bottom: 30px; color: #2c3e50; background: #e8f4fd; padding: 20px; border-radius: 10px;">
+              Now you will watch a series of six videos on your own while applying the <strong>participating</strong> approach.
+            </p>
             <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px; color: black;">Participating Approach</h1>
             <p style="font-size: 20px; line-height: 1.6; margin-bottom: 40px; color: black;">
               Let yourself enter the video fully, as if the imagery and sounds are happening not just around you, but within you.
@@ -885,14 +1326,61 @@ export async function run({
           </div>
         </div>
       `,
-      choices: ["Continue"],
+      choices: "NO_KEYS",
+      trial_duration: 45000,
       data: { task: "condition_instructions", condition: "participatory" },
     },
+  };
+
+  // Break slide - shown after first block
+  var break_slide = {
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: `
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+        <div style="text-align: center; max-width: 700px;">
+          <h1 style="font-size: 36px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Break Time</h1>
+          <div style="background: #e8f4fd; border: 2px solid #3498db; border-radius: 10px; padding: 30px; margin-bottom: 30px;">
+            <p style="font-size: 22px; line-height: 1.6; margin: 0; color: #2c3e50;">
+              If you would like to use the restroom or take a 5-minute break, you may do so now.
+            </p>
+          </div>
+          <p style="font-size: 20px; line-height: 1.6; color: #333; margin-bottom: 30px;">
+            Please pick-up the communication device to let the Research Assistant (RA) know if you would like to take a break or continue on.
+          </p>
+          <p style="font-size: 18px; color: #c0392b; font-weight: bold;">
+            Please remember to avoid using your cellphone during your break.
+          </p>
+          <p style="font-size: 16px; color: #999; margin-top: 40px; font-style: italic;">
+            (RA: Press <strong>N</strong> when the participant is ready to continue)
+          </p>
+        </div>
+      </div>
+    `,
+    choices: ["n", "N"],
+    data: { task: "break_slide" },
   };
 
   // Add each block
   for (var b = 0; b < blocks.length; b++) {
     var block = blocks[b];
+
+    // Create a function to build the audio + RA Q&A sequence with repeat functionality
+    // This uses a loop_function to allow repeating the audio if R is pressed during Q&A
+    var audio_ra_procedure = {
+      timeline: [
+        blockPractice[block.blockType].audio_intro,
+        blockPractice[block.blockType].audio_play,
+        blockPractice[block.blockType].ra_wait
+      ],
+      loop_function: function(data) {
+        // Check if the last trial (ra_wait) had R pressed
+        var lastTrial = data.values()[data.values().length - 1];
+        if (lastTrial.response === "r" || lastTrial.response === "R") {
+          return true; // Loop back to play audio again
+        }
+        return false; // Continue to next trial
+      }
+    };
 
     // Add practice sequence for this block
     timeline.push({
@@ -902,13 +1390,11 @@ export async function run({
       trial_duration: 100,
       data: { task: "transition" },
     });
-    timeline.push(blockPractice[block.blockType].audio_intro);
-    timeline.push(blockPractice[block.blockType].audio_play);
-    timeline.push(blockPractice[block.blockType].ra_wait); // RA Q&A session
+
+    timeline.push(audio_ra_procedure);
     timeline.push(blockPractice[block.blockType].practice_intro);
     timeline.push(blockPractice[block.blockType].practice_video);
 
-    // Add rating questions after practice video
     // Add rating questions after practice video
     timeline.push(rating_procedure);
 
@@ -937,12 +1423,13 @@ export async function run({
       };
     });
 
-    // Video trial with dial rating
+    // Video trial with dial rating - fullscreen with dial overlay
     var video_dial_trial = {
       type: VideoDialRatingPlugin,
       stimulus: jsPsych.timelineVariable("filepath"),
-      video_width: 960,
-      video_height: 540,
+      video_width: "100%",
+      video_height: "100%",
+      fullscreen: true,
       dial_start: 5,
       sample_rate_ms: 10,
       trial_ends_after_video: true,
@@ -971,6 +1458,11 @@ export async function run({
     );
     console.log("First video stimulus:", blockVideoStimuli[0]);
     timeline.push(video_procedure);
+
+    // Add break slide after the first block (index 0)
+    if (b === 0) {
+      timeline.push(break_slide);
+    }
   }
 
   // End screen

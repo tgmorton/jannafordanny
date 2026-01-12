@@ -9,15 +9,20 @@ const info = {
       default: undefined,
       array: true,
     },
-    /** Width of the video in pixels */
+    /** Width of the video in pixels or "100%" for fullscreen */
     video_width: {
-      type: ParameterType.INT,
-      default: 800,
+      type: ParameterType.STRING,
+      default: "800",
     },
-    /** Height of the video in pixels */
+    /** Height of the video in pixels or "100%" for fullscreen */
     video_height: {
-      type: ParameterType.INT,
-      default: 600,
+      type: ParameterType.STRING,
+      default: "600",
+    },
+    /** Whether to use fullscreen video with dial overlay */
+    fullscreen: {
+      type: ParameterType.BOOL,
+      default: false,
     },
     /** Whether to autoplay the video */
     autoplay: {
@@ -104,6 +109,11 @@ class VideoDialRatingPlugin {
     // Hide cursor globally
     document.body.style.cursor = "none";
 
+    // Determine if fullscreen mode
+    const isFullscreen = trial.fullscreen === true;
+    const videoWidth = isFullscreen ? "100vw" : (typeof trial.video_width === 'string' && trial.video_width.includes('%') ? trial.video_width : trial.video_width + "px");
+    const videoHeight = isFullscreen ? "100vh" : (typeof trial.video_height === 'string' && trial.video_height.includes('%') ? trial.video_height : trial.video_height + "px");
+
     // Build the HTML
     let html = `
       <style>
@@ -113,12 +123,15 @@ class VideoDialRatingPlugin {
           align-items: center;
           gap: 0px;
           cursor: none;
+          ${isFullscreen ? 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000;' : ''}
         }
         #dial-container {
-          position: relative;
+          position: ${isFullscreen ? 'fixed' : 'relative'};
+          ${isFullscreen ? 'top: 20px; left: 50%; transform: translateX(-50%); z-index: 100;' : ''}
           width: 150px;
           height: 150px;
-          margin: 10px 0;
+          ${isFullscreen ? '' : 'margin: 10px 0;'}
+          ${isFullscreen ? 'border: 3px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.5);' : ''}
         }
         #dial-svg {
           width: 100%;
@@ -132,15 +145,20 @@ class VideoDialRatingPlugin {
           position: relative;
           display: flex;
           flex-direction: row;
-          align-items: flex-start;
+          align-items: ${isFullscreen ? 'center' : 'flex-start'};
+          justify-content: center;
+          ${isFullscreen ? 'width: 100vw; height: 100vh;' : ''}
         }
         #trail-container {
           margin-right: 10px;
         }
         #video-container {
           position: relative;
-          width: ${trial.video_width}px;
-          height: ${trial.video_height}px;
+          width: ${isFullscreen ? '100vw' : videoWidth};
+          height: ${isFullscreen ? '100vh' : videoHeight};
+        }
+        #jspsych-video-dial-video {
+          ${isFullscreen ? 'width: 100vw; height: 100vh; object-fit: contain;' : ''}
         }
         #video-overlay {
           position: absolute;
@@ -173,7 +191,8 @@ class VideoDialRatingPlugin {
         }
       </style>
       <div id="dial-video-container">
-        <div id="dial-container">
+        ${isFullscreen ? '' : '<div id="dial-container">'}
+        ${isFullscreen ? '<div id="dial-container">' : ''}
           <svg id="dial-svg" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <radialGradient id="knobGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
@@ -253,7 +272,7 @@ class VideoDialRatingPlugin {
           ${
             trial.show_trail
               ? `<div id="trail-container">
-            <canvas id="dial-trail-canvas" width="200" height="${trial.video_height}" style="background: #1a1a1a; border: 1px solid #333;"></canvas>
+            <canvas id="dial-trail-canvas" width="200" height="${isFullscreen ? '600' : trial.video_height}" style="background: #1a1a1a; border: 1px solid #333;"></canvas>
           </div>`
               : ""
           }
@@ -263,8 +282,7 @@ class VideoDialRatingPlugin {
               <div id="countdown-number">${trial.countdown_duration}</div>
             </div>
             <video id="jspsych-video-dial-video"
-                   width="${trial.video_width}"
-                   height="${trial.video_height}"
+                   ${isFullscreen ? '' : 'width="' + trial.video_width + '" height="' + trial.video_height + '"'}
                    playsinline>`;
 
     for (const src of trial.stimulus) {
