@@ -548,9 +548,9 @@ class VideoDialRatingPlugin {
       this.updateDialValue(newValue);
     };
 
-    // Skip key handler and debug toggle
+    // Skip key handler (Escape only - prevents accidental skips) and debug toggle
     const keyHandler = (e) => {
-      if (e.key === "n" || e.key === "N") {
+      if (e.key === "Escape") {
         e.preventDefault();
         this.endTrial(trial);
       }
