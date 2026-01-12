@@ -952,27 +952,69 @@ export async function run({
     return subtitles;
   }
 
-  // Karaoke-style subtitle display - shows blocks of text with current portion highlighted
+  // Apple Music-style karaoke lyrics - each line separate, smooth scrolling, current line highlighted
   function setupKaraokeSubtitles(audioElement, subtitles, subtitleElement) {
     var currentIndex = -1;
 
-    // Render all text with current portion highlighted
-    function renderAllText(currentIdx) {
-      var html = "";
+    // Create the lyrics container with all lines
+    function initializeLyrics() {
+      var html = '<div class="lyrics-container" style="position: relative; transition: transform 0.3s ease-out;">';
       for (var i = 0; i < subtitles.length; i++) {
-        var text = subtitles[i].text;
-        if (i === currentIdx) {
-          // Current subtitle - highlighted
-          html += '<span style="background-color: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">' + text + '</span> ';
-        } else if (i < currentIdx) {
-          // Past subtitles - slightly dimmed
-          html += '<span style="color: #666;">' + text + '</span> ';
-        } else {
-          // Future subtitles - more dimmed
-          html += '<span style="color: #999;">' + text + '</span> ';
-        }
+        html += '<div class="lyric-line" data-index="' + i + '" style="' +
+          'padding: 12px 20px;' +
+          'margin: 8px 0;' +
+          'border-radius: 8px;' +
+          'transition: all 0.3s ease-out;' +
+          'color: #888;' +
+          'font-size: 18px;' +
+          'line-height: 1.6;' +
+          '">' + subtitles[i].text + '</div>';
       }
-      return html;
+      html += '</div>';
+      subtitleElement.innerHTML = html;
+    }
+
+    function updateHighlight(newIndex) {
+      var lines = subtitleElement.querySelectorAll('.lyric-line');
+      var container = subtitleElement.querySelector('.lyrics-container');
+
+      lines.forEach(function(line, i) {
+        if (i === newIndex) {
+          // Current line - highlighted
+          line.style.color = '#000';
+          line.style.fontWeight = 'bold';
+          line.style.fontSize = '20px';
+          line.style.backgroundColor = 'rgba(255, 235, 59, 0.3)';
+          line.style.transform = 'scale(1.02)';
+        } else if (i < newIndex) {
+          // Past lines - dimmed
+          line.style.color = '#666';
+          line.style.fontWeight = 'normal';
+          line.style.fontSize = '18px';
+          line.style.backgroundColor = 'transparent';
+          line.style.transform = 'scale(1)';
+        } else {
+          // Future lines - more dimmed
+          line.style.color = '#999';
+          line.style.fontWeight = 'normal';
+          line.style.fontSize = '18px';
+          line.style.backgroundColor = 'transparent';
+          line.style.transform = 'scale(1)';
+        }
+      });
+
+      // Smooth scroll to keep current line visible (centered in view)
+      if (newIndex >= 0 && lines[newIndex]) {
+        var line = lines[newIndex];
+        var containerRect = subtitleElement.getBoundingClientRect();
+        var lineRect = line.getBoundingClientRect();
+        var scrollTarget = line.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
+
+        subtitleElement.scrollTo({
+          top: Math.max(0, scrollTarget),
+          behavior: 'smooth'
+        });
+      }
     }
 
     audioElement.addEventListener("timeupdate", function () {
@@ -987,24 +1029,25 @@ export async function run({
         }
       }
 
-      // If between subtitles, keep the last one highlighted
-      if (newIndex === -1 && currentIndex >= 0) {
-        // Find if we've passed the current subtitle
-        if (currentIndex < subtitles.length - 1 && currentTime > subtitles[currentIndex].end) {
-          // We're between currentIndex and the next one, keep current highlighted
-          newIndex = currentIndex;
+      // If between subtitles, find the most recent one
+      if (newIndex === -1) {
+        for (var j = subtitles.length - 1; j >= 0; j--) {
+          if (currentTime > subtitles[j].end) {
+            newIndex = j;
+            break;
+          }
         }
       }
 
       // Only update if index changed
       if (newIndex !== currentIndex) {
         currentIndex = newIndex;
-        subtitleElement.innerHTML = renderAllText(currentIndex);
+        updateHighlight(currentIndex);
       }
     });
 
-    // Initialize with all text, nothing highlighted yet
-    subtitleElement.innerHTML = renderAllText(-1);
+    // Initialize lyrics display
+    initializeLyrics();
   }
 
   // Legacy function for backwards compatibility
@@ -1067,7 +1110,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/natural.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Natural Instructions Now Playing</h2>
-            <div id="subtitle-display" style="font-size: 18px; text-align: left; max-width: 900px; line-height: 2; max-height: 400px; overflow-y: auto; padding: 25px; background: #f9f9f9; border-radius: 10px;"></div>
+            <div id="subtitle-display" style="text-align: center; max-width: 800px; width: 100%; height: 300px; overflow-y: auto; overflow-x: hidden; padding: 20px; background: #f9f9f9; border-radius: 10px; position: relative; scroll-behavior: smooth;"></div>
           </div>
         `,
         choices: ["n", "N"],
@@ -1169,7 +1212,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/participate.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Participating Instructions Now Playing</h2>
-            <div id="subtitle-display" style="font-size: 18px; text-align: left; max-width: 900px; line-height: 2; max-height: 400px; overflow-y: auto; padding: 25px; background: #f9f9f9; border-radius: 10px;"></div>
+            <div id="subtitle-display" style="text-align: center; max-width: 800px; width: 100%; height: 300px; overflow-y: auto; overflow-x: hidden; padding: 20px; background: #f9f9f9; border-radius: 10px; position: relative; scroll-behavior: smooth;"></div>
           </div>
         `,
         choices: ["n", "N"],
@@ -1270,7 +1313,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/observe.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Observing Instructions Now Playing</h2>
-            <div id="subtitle-display" style="font-size: 18px; text-align: left; max-width: 900px; line-height: 2; max-height: 400px; overflow-y: auto; padding: 25px; background: #f9f9f9; border-radius: 10px;"></div>
+            <div id="subtitle-display" style="text-align: center; max-width: 800px; width: 100%; height: 300px; overflow-y: auto; overflow-x: hidden; padding: 20px; background: #f9f9f9; border-radius: 10px; position: relative; scroll-behavior: smooth;"></div>
           </div>
         `,
         choices: ["n", "N"],
