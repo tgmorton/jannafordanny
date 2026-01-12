@@ -436,9 +436,25 @@ class VideoDialRatingPlugin {
       clearInterval(this.samplingInterval);
     }
 
+    // Monitor broadcasting (throttled to 500ms)
+    let lastMonitorBroadcast = 0;
+    const monitorBroadcastInterval = 500; // ms
+
     this.samplingInterval = setInterval(() => {
       if (this.isRecording) {
         this.recordEvent("sample");
+
+        // Broadcast to monitor (throttled)
+        const now = performance.now();
+        if (now - lastMonitorBroadcast >= monitorBroadcastInterval) {
+          lastMonitorBroadcast = now;
+          if (window.__experimentMonitor && window.__experimentMonitor.sendMonitorUpdate) {
+            window.__experimentMonitor.sendMonitorUpdate({
+              type: 'dial_value',
+              value: Math.round(this.currentValue * 10) / 10,
+            });
+          }
+        }
       }
       if (this.showTrail && this.canvas) {
         this.drawTrail(trial);

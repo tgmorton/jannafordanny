@@ -28,9 +28,52 @@ export async function run({
   title,
   version,
 }) {
+  // === Progress Monitor Setup (opt-in via ?monitor= URL param) ===
+  const monitorUrl = new URLSearchParams(window.location.search).get('monitor');
+  let monitorSocket = null;
+
+  if (monitorUrl) {
+    try {
+      monitorSocket = new WebSocket(monitorUrl);
+      monitorSocket.onopen = () => console.log('Monitor connected:', monitorUrl);
+      monitorSocket.onerror = () => {
+        console.warn('Monitor connection failed, continuing without monitoring');
+        monitorSocket = null;
+      };
+      monitorSocket.onclose = () => { monitorSocket = null; };
+    } catch (e) {
+      console.warn('Monitor connection failed:', e.message);
+      monitorSocket = null;
+    }
+  }
+
+  // Helper to safely send monitor updates (no-ops if not connected)
+  function sendMonitorUpdate(data) {
+    if (monitorSocket && monitorSocket.readyState === WebSocket.OPEN) {
+      monitorSocket.send(JSON.stringify({ ...data, timestamp: Date.now() }));
+    }
+  }
+
+  // Expose for dial plugin to use
+  window.__experimentMonitor = { sendMonitorUpdate };
+
   const jsPsych = initJsPsych({
     on_finish: function() {
-      jatos.endStudy(jsPsych.data.get().json());
+      sendMonitorUpdate({ type: 'session_end' });
+      const resultData = jsPsych.data.get().json();
+      // Check if JATOS is available
+      if (typeof jatos !== 'undefined') {
+        jatos.endStudy(resultData);
+      } else {
+        // Fallback: log data to console when not running in JATOS
+        console.log('Experiment complete. Data:', resultData);
+      }
+    },
+    on_data_update: function(data) {
+      // Save data incrementally to JATOS after each trial
+      if (typeof jatos !== 'undefined' && jatos.submitResultData) {
+        jatos.submitResultData(data);
+      }
     }
   });
 
@@ -63,7 +106,7 @@ export async function run({
   // Helper to generate rating preamble HTML with thermometer
   function ratingPreamble(question, instruction, thermometer) {
     return `
-      <div style="display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: 20px; box-sizing: border-box; background: white;">
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: 20px; box-sizing: border-box;">
         <div style="display: flex; align-items: center; justify-content: space-between; max-width: 900px; width: 100%; gap: 60px;">
           <div style="flex: 1; text-align: left;">
             <p style="font-size: 28px; font-weight: bold; line-height: 1.4; margin-bottom: 30px; color: #222;">
@@ -162,6 +205,7 @@ export async function run({
     on_load: addRatingValidation,
     on_finish: function (data) {
       data.rating = parseInt(data.response.rating);
+      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'arousal', value: data.rating, rt: data.rt });
     },
   };
 
@@ -185,6 +229,7 @@ export async function run({
     on_load: addRatingValidation,
     on_finish: function (data) {
       data.rating = parseInt(data.response.rating);
+      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'pleasure', value: data.rating, rt: data.rt });
     },
   };
 
@@ -208,6 +253,7 @@ export async function run({
     on_load: addRatingValidation,
     on_finish: function (data) {
       data.rating = parseInt(data.response.rating);
+      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'distraction', value: data.rating, rt: data.rt });
     },
   };
 
@@ -231,6 +277,7 @@ export async function run({
     on_load: addRatingValidation,
     on_finish: function (data) {
       data.rating = parseInt(data.response.rating);
+      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'immersion', value: data.rating, rt: data.rt });
     },
   };
 
@@ -276,6 +323,9 @@ export async function run({
     var input = form.querySelector('input[type="text"]');
     var submitButton = document.getElementById("jspsych-survey-text-next");
 
+    // Hide the Continue button - we use Enter key instead
+    submitButton.style.display = "none";
+
     // Add error message container (hidden initially)
     var errorDiv = document.createElement("div");
     errorDiv.id = "pid-error";
@@ -285,7 +335,27 @@ export async function run({
       'Please enter exactly 8 digits (without the "A" prefix).';
     submitButton.parentNode.appendChild(errorDiv);
 
-    // Intercept button click before form submission
+    // Handle Enter key submission with validation
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        var value = input.value.trim();
+        // Remove 'A' prefix if present for validation
+        if (value.toLowerCase().startsWith("a")) {
+          value = value.substring(1);
+        }
+        if (!/^\d{8}$/.test(value)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          errorDiv.style.display = "block";
+          input.focus();
+          return false;
+        }
+        errorDiv.style.display = "none";
+        // Let the form submit naturally via Enter
+      }
+    });
+
+    // Also intercept button click in case it's somehow triggered
     submitButton.addEventListener("click", function (e) {
       var value = input.value.trim();
       // Remove 'A' prefix if present for validation
@@ -308,7 +378,7 @@ export async function run({
     questions: [
       {
         prompt:
-          '<p style="font-size: 20px;">Enter your 8-digit Participant ID (without the "A"):</p><p style="font-size: 14px; color: #666;">Example: If your ID is A12345678, enter 12345678</p>',
+          '<p style="font-size: 20px;">Enter your 8-digit Participant ID (without the "A"):</p><p style="font-size: 14px; color: #666;">Example: If your ID is A12345678, enter 12345678</p><p style="font-size: 14px; color: #666; margin-top: 15px;">Press <strong>Enter</strong> to continue.</p>',
         name: "pid",
         required: true,
         placeholder: "12345678",
@@ -329,16 +399,26 @@ export async function run({
       jsPsych.data.addProperties({
         participant_pid: entered_pid,
       });
+      // Send session start to monitor
+      sendMonitorUpdate({
+        type: 'session_start',
+        participant_id: entered_pid,
+      });
     },
   };
 
   // PID confirmation - separate page
   var pid_confirmation = {
-    type: HtmlButtonResponsePlugin,
+    type: HtmlKeyboardResponsePlugin,
     stimulus: function () {
-      return `<p style="font-size: 20px; text-align: center; margin-bottom: 20px;">Please confirm that this PID is correct: ${entered_pid}</p>`;
+      return `
+        <div style="text-align: center;">
+          <p style="font-size: 20px; margin-bottom: 30px;">Please confirm that this PID is correct: <strong>${entered_pid}</strong></p>
+          <p style="font-size: 16px; color: #666;">Press <strong>Enter</strong> to confirm, or <strong>N</strong> to go back and re-enter.</p>
+        </div>
+      `;
     },
-    choices: ["Yes", "No"],
+    choices: ["Enter", "n", "N"],
     data: { task: "pid_confirmation" },
   };
 
@@ -357,11 +437,11 @@ export async function run({
     loop_function: function (data) {
       // Get the confirmation response (last trial in timeline)
       var last_trial = data.values()[data.values().length - 1];
-      // If they clicked "No" (button index 1), loop again
-      if (last_trial.response === 1) {
+      // If they pressed "N", loop again to re-enter PID
+      if (last_trial.response === "n" || last_trial.response === "N") {
         return true; // Loop again - go back to PID entry
       } else {
-        return false; // Continue to experiment
+        return false; // Continue to experiment (Enter was pressed)
       }
     },
   };
@@ -510,7 +590,7 @@ export async function run({
           </div>
           <div style="flex-shrink: 0; text-align: center;">
             ${createInteractiveDialHTML()}
-            <p style="font-size: 14px; color: #666; margin-top: 15px;">The dial will appear like this<br>at the top of the video.</p>
+            <p style="font-size: 14px; color: #666; margin-top: 50px;">The dial will appear like this<br>at the top of the video.</p>
           </div>
         </div>
       </div>
@@ -564,6 +644,12 @@ export async function run({
 
       // Initialize dial position
       updateDial(5);
+    },
+    on_start: function() {
+      sendMonitorUpdate({ type: 'trial_update', task: 'dial_instructions', instruction: 'Dial Instructions' });
+    },
+    on_finish: function(data) {
+      sendMonitorUpdate({ type: 'instruction_complete', task: 'dial_instructions', instruction: 'Dial Instructions', rt: data.rt });
     }
   };
 
@@ -612,6 +698,12 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "study_overview" },
+    on_start: function() {
+      sendMonitorUpdate({ type: 'trial_update', task: 'study_overview', instruction: 'Study Overview' });
+    },
+    on_finish: function(data) {
+      sendMonitorUpdate({ type: 'instruction_complete', task: 'study_overview', instruction: 'Study Overview', rt: data.rt });
+    }
   };
 
   // Nature video with dial rating (replaces simple video playback)
@@ -629,6 +721,9 @@ export async function run({
       task: "nature_video_dial",
       filename: "nature.mp4",
     },
+    on_start: function() {
+      sendMonitorUpdate({ type: 'trial_update', task: 'nature_video_dial' });
+    }
   };
 
   // Audio test slide - plays a short audio to test headphones
@@ -1444,6 +1539,21 @@ export async function run({
         block_type: jsPsych.timelineVariable("block_type"),
         block_order: jsPsych.timelineVariable("block_order"),
       },
+      on_start: function() {
+        sendMonitorUpdate({
+          type: 'trial_update',
+          task: 'video_dial_rating',
+          block: {
+            order: jsPsych.evaluateTimelineVariable('block_order'),
+            type: jsPsych.evaluateTimelineVariable('block_type'),
+          },
+          video: {
+            name: jsPsych.evaluateTimelineVariable('filename'),
+            practice: false,
+            trial_in_block: jsPsych.evaluateTimelineVariable('trial_in_block'),
+          },
+        });
+      }
     };
 
     // Video procedure for this block (dial video + 4 rating questions)
