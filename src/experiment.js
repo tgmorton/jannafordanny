@@ -710,8 +710,7 @@ export async function run({
   var nature_video_dial = {
     type: VideoDialRatingPlugin,
     stimulus: ["assets/nature.mp4"],
-    video_width: 960,
-    video_height: 540,
+    fullscreen: true,
     dial_start: 5,
     sample_rate_ms: 10,
     trial_ends_after_video: true,
