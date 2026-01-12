@@ -958,14 +958,14 @@ export async function run({
 
     // Create the lyrics container with all lines
     function initializeLyrics() {
-      var html = '<div class="lyrics-container" style="position: relative; transition: transform 0.3s ease-out;">';
+      var html = '<div class="lyrics-container" style="position: relative;">';
       for (var i = 0; i < subtitles.length; i++) {
         html += '<div class="lyric-line" data-index="' + i + '" style="' +
-          'padding: 12px 20px;' +
-          'margin: 8px 0;' +
-          'border-radius: 8px;' +
-          'transition: all 0.3s ease-out;' +
-          'color: #888;' +
+          'padding: 10px 16px;' +
+          'margin: 4px 0;' +
+          'border-radius: 6px;' +
+          'transition: color 0.5s ease, background-color 0.5s ease, font-weight 0.5s ease;' +
+          'color: #aaa;' +
           'font-size: 18px;' +
           'line-height: 1.6;' +
           '">' + subtitles[i].text + '</div>';
@@ -976,30 +976,23 @@ export async function run({
 
     function updateHighlight(newIndex) {
       var lines = subtitleElement.querySelectorAll('.lyric-line');
-      var container = subtitleElement.querySelector('.lyrics-container');
 
       lines.forEach(function(line, i) {
         if (i === newIndex) {
           // Current line - highlighted
           line.style.color = '#000';
-          line.style.fontWeight = 'bold';
-          line.style.fontSize = '20px';
-          line.style.backgroundColor = 'rgba(255, 235, 59, 0.3)';
-          line.style.transform = 'scale(1.02)';
+          line.style.fontWeight = '600';
+          line.style.backgroundColor = 'rgba(255, 235, 59, 0.2)';
         } else if (i < newIndex) {
           // Past lines - dimmed
-          line.style.color = '#666';
+          line.style.color = '#777';
           line.style.fontWeight = 'normal';
-          line.style.fontSize = '18px';
           line.style.backgroundColor = 'transparent';
-          line.style.transform = 'scale(1)';
         } else {
           // Future lines - more dimmed
-          line.style.color = '#999';
+          line.style.color = '#aaa';
           line.style.fontWeight = 'normal';
-          line.style.fontSize = '18px';
           line.style.backgroundColor = 'transparent';
-          line.style.transform = 'scale(1)';
         }
       });
 
