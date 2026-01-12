@@ -955,29 +955,21 @@ export async function run({
   // Karaoke-style subtitle display - shows blocks of text with current portion highlighted
   function setupKaraokeSubtitles(audioElement, subtitles, subtitleElement) {
     var currentIndex = -1;
-    var CONTEXT_SIZE = 3; // Number of subtitles to show before and after current
 
-    function renderKaraokeText(currentIdx, subtitles) {
-      if (currentIdx < 0 || currentIdx >= subtitles.length) {
-        return "";
-      }
-
-      // Calculate range of subtitles to display
-      var startIdx = Math.max(0, currentIdx - CONTEXT_SIZE);
-      var endIdx = Math.min(subtitles.length - 1, currentIdx + CONTEXT_SIZE);
-
+    // Render all text with current portion highlighted
+    function renderAllText(currentIdx) {
       var html = "";
-      for (var i = startIdx; i <= endIdx; i++) {
+      for (var i = 0; i < subtitles.length; i++) {
         var text = subtitles[i].text;
         if (i === currentIdx) {
           // Current subtitle - highlighted
           html += '<span style="background-color: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">' + text + '</span> ';
         } else if (i < currentIdx) {
-          // Past subtitles - dimmed
-          html += '<span style="color: #888;">' + text + '</span> ';
+          // Past subtitles - slightly dimmed
+          html += '<span style="color: #666;">' + text + '</span> ';
         } else {
-          // Future subtitles - normal but slightly dimmed
-          html += '<span style="color: #555;">' + text + '</span> ';
+          // Future subtitles - more dimmed
+          html += '<span style="color: #999;">' + text + '</span> ';
         }
       }
       return html;
@@ -985,35 +977,34 @@ export async function run({
 
     audioElement.addEventListener("timeupdate", function () {
       var currentTime = audioElement.currentTime * 1000;
-      var found = false;
 
+      // Find which subtitle is currently being spoken
+      var newIndex = -1;
       for (var i = 0; i < subtitles.length; i++) {
         if (currentTime >= subtitles[i].start && currentTime <= subtitles[i].end) {
-          if (currentIndex !== i) {
-            subtitleElement.innerHTML = renderKaraokeText(i, subtitles);
-            currentIndex = i;
-          }
-          found = true;
+          newIndex = i;
           break;
         }
       }
 
-      // If between subtitles, show the last displayed block
-      if (!found && currentIndex >= 0) {
-        // Find the next subtitle
-        for (var j = 0; j < subtitles.length; j++) {
-          if (currentTime < subtitles[j].start) {
-            // We're between currentIndex and j, keep showing current context
-            break;
-          }
+      // If between subtitles, keep the last one highlighted
+      if (newIndex === -1 && currentIndex >= 0) {
+        // Find if we've passed the current subtitle
+        if (currentIndex < subtitles.length - 1 && currentTime > subtitles[currentIndex].end) {
+          // We're between currentIndex and the next one, keep current highlighted
+          newIndex = currentIndex;
         }
+      }
+
+      // Only update if index changed
+      if (newIndex !== currentIndex) {
+        currentIndex = newIndex;
+        subtitleElement.innerHTML = renderAllText(currentIndex);
       }
     });
 
-    // Initialize with first few subtitles
-    if (subtitles.length > 0) {
-      subtitleElement.innerHTML = renderKaraokeText(0, subtitles);
-    }
+    // Initialize with all text, nothing highlighted yet
+    subtitleElement.innerHTML = renderAllText(-1);
   }
 
   // Legacy function for backwards compatibility
@@ -1076,7 +1067,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/natural.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Natural Instructions Now Playing</h2>
-            <div id="subtitle-display" style="font-size: 20px; text-align: center; max-width: 900px; line-height: 1.8; min-height: 120px; padding: 20px; background: #f9f9f9; border-radius: 10px;"></div>
+            <div id="subtitle-display" style="font-size: 18px; text-align: left; max-width: 900px; line-height: 2; max-height: 400px; overflow-y: auto; padding: 25px; background: #f9f9f9; border-radius: 10px;"></div>
           </div>
         `,
         choices: ["n", "N"],
@@ -1178,7 +1169,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/participate.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Participating Instructions Now Playing</h2>
-            <div id="subtitle-display" style="font-size: 20px; text-align: center; max-width: 900px; line-height: 1.8; min-height: 120px; padding: 20px; background: #f9f9f9; border-radius: 10px;"></div>
+            <div id="subtitle-display" style="font-size: 18px; text-align: left; max-width: 900px; line-height: 2; max-height: 400px; overflow-y: auto; padding: 25px; background: #f9f9f9; border-radius: 10px;"></div>
           </div>
         `,
         choices: ["n", "N"],
@@ -1279,7 +1270,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/observe.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Observing Instructions Now Playing</h2>
-            <div id="subtitle-display" style="font-size: 20px; text-align: center; max-width: 900px; line-height: 1.8; min-height: 120px; padding: 20px; background: #f9f9f9; border-radius: 10px;"></div>
+            <div id="subtitle-display" style="font-size: 18px; text-align: left; max-width: 900px; line-height: 2; max-height: 400px; overflow-y: auto; padding: 25px; background: #f9f9f9; border-radius: 10px;"></div>
           </div>
         `,
         choices: ["n", "N"],
