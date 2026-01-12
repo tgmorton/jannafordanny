@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Experiment Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fafbfc;
+      --card-bg: #ffffff;
+      --border: #e1e4e8;
+      --text-primary: #24292f;
+      --text-secondary: #57606a;
+      --text-muted: #8b949e;
+      --accent: #0969da;
+      --accent-light: #ddf4ff;
+      --success: #1a7f37;
+      --success-light: #dafbe1;
+      --warning: #9a6700;
+      --warning-light: #fff8c5;
+      --neutral: #1a7f37;
+      --participatory: #cf222e;
+      --observatory: #0969da;
+      --timeline-line: #d0d7de;
+      --timeline-active: #0969da;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    .header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: -0.5px;
+    }
+
+    .participant-badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-weight: 500;
+    }
+
+    .session-timer-header {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: var(--bg);
+      border-radius: 16px;
+    }
+
+    .timer-icon {
+      font-size: 12px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 0 3px var(--success-light);
+    }
+
+    /* Main Layout */
+    .main {
+      display: flex;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    /* Timeline Panel */
+    .timeline-panel {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .panel-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      padding-left: 32px;
+    }
+
+    /* Timeline */
+    .timeline {
+      position: relative;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: var(--timeline-line);
+      border-radius: 1px;
+    }
+
+    .timeline-section {
+      margin-bottom: 8px;
+    }
+
+    .timeline-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 8px 0;
+      position: relative;
+    }
+
+    .timeline-marker {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 2px solid var(--timeline-line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      transition: all 0.2s ease;
+    }
+
+    .timeline-marker svg {
+      width: 12px;
+      height: 12px;
+      opacity: 0;
+      color: white;
+    }
+
+    .timeline-item.completed .timeline-marker {
+      background: var(--success);
+      border-color: var(--success);
+    }
+
+    .timeline-item.completed .timeline-marker svg {
+      opacity: 1;
+    }
+
+    .timeline-item.active .timeline-marker {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-light);
+    }
+
+    .timeline-item.active .timeline-marker::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: white;
+      border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.7; }
+    }
+
+    .timeline-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .timeline-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timeline-item.pending .timeline-label {
+      color: var(--text-muted);
+    }
+
+    .timeline-sublabel {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Block Badge */
+    .block-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: white;
+    }
+
+    .block-badge.neutral { background: var(--neutral); }
+    .block-badge.participatory { background: var(--participatory); }
+    .block-badge.observatory { background: var(--observatory); }
+
+    /* Block Container */
+    .block-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 8px 0 8px 40px;
+      overflow: hidden;
+    }
+
+    .block-header {
+      padding: 12px 16px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .block-title {
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .block-progress {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .block-stages {
+      padding: 8px 0;
+    }
+
+    .block-stage {
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .block-stage.completed {
+      color: var(--text-muted);
+    }
+
+    .block-stage.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* Instruction Containers (for timeline) */
+    .instruction-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 8px 0 8px 40px;
+      overflow: hidden;
+    }
+
+    .instruction-stages {
+      padding: 4px 0;
+    }
+
+    .instruction-stage {
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .instruction-stage:last-child {
+      border-bottom: none;
+    }
+
+    .instruction-stage.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .instruction-stage.completed {
+      color: var(--text-muted);
+    }
+
+    .instruction-stage .name {
+      flex: 1;
+    }
+
+    .instruction-stage .rt {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--success);
+      background: var(--success-light);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .stage-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stage-icon svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Video List */
+    .video-list {
+      border-top: 1px solid var(--border);
+    }
+
+    .video-item {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .video-item:last-child {
+      border-bottom: none;
+    }
+
+    .video-item.active {
+      background: var(--accent-light);
+    }
+
+    .video-number {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      width: 20px;
+    }
+
+    .video-name {
+      font-size: 13px;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .video-item.active .video-name {
+      color: var(--accent);
+    }
+
+    .video-ratings {
+      display: flex;
+      gap: 4px;
+    }
+
+    .mini-rating {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: var(--bg);
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .mini-rating::before {
+      content: attr(data-label);
+      font-size: 8px;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .mini-rating.arousal { border-left: 2px solid #cf222e; }
+    .mini-rating.arousal::before { content: 'A'; color: #cf222e; }
+    .mini-rating.pleasure { border-left: 2px solid #8250df; }
+    .mini-rating.pleasure::before { content: 'P'; color: #8250df; }
+    .mini-rating.distraction { border-left: 2px solid #0969da; }
+    .mini-rating.distraction::before { content: 'D'; color: #0969da; }
+    .mini-rating.immersion { border-left: 2px solid #1a7f37; }
+    .mini-rating.immersion::before { content: 'I'; color: #1a7f37; }
+
+    /* Live Panel */
+    .live-panel {
+      width: 320px;
+      flex-shrink: 0;
+    }
+
+    .live-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: sticky;
+      top: 80px;
+    }
+
+    .live-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .live-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--participatory);
+      font-weight: 500;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--participatory);
+      border-radius: 50%;
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .dial-container {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .dial-gauge {
+      width: 180px;
+      height: 180px;
+      position: relative;
+    }
+
+    .dial-gauge svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .dial-gauge circle {
+      fill: none;
+    }
+
+    .dial-bg {
+      stroke: var(--border);
+      stroke-width: 12;
+    }
+
+    .dial-value {
+      stroke: var(--accent);
+      stroke-width: 12;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.2s ease;
+    }
+
+    .dial-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .dial-number {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 48px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .dial-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    .dial-range {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Sparkline */
+    .sparkline-container {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .sparkline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .sparkline-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sparkline-stats {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    .sparkline {
+      width: 100%;
+      height: 60px;
+      background: var(--bg);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .sparkline svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .sparkline-line {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 1.5;
+    }
+
+    .sparkline-area {
+      fill: var(--accent-light);
+    }
+
+    /* Current Video Info */
+    .current-video {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .current-video-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .current-video-name {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* Current Ratings */
+    .current-ratings {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .ratings-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .rating-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rating-row:last-child {
+      border-bottom: none;
+    }
+
+    .rating-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rating-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .rating-dot.arousal { background: #cf222e; }
+    .rating-dot.pleasure { background: #8250df; }
+    .rating-dot.distraction { background: #0969da; }
+    .rating-dot.immersion { background: #1a7f37; }
+
+    .rating-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .rating-value.pending {
+      color: var(--text-muted);
+    }
+
+    .rating-value .rt {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
+    .mini-rt {
+      font-size: 8px;
+      opacity: 0.6;
+      margin-left: 2px;
+    }
+
+    /* Waiting State */
+    .waiting {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .waiting-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .waiting-icon svg {
+      width: 28px;
+      height: 28px;
+      color: var(--text-muted);
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .waiting h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .waiting p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .waiting code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+
+    /* Utility */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">EXPERIMENT MONITOR</div>
+      <div class="participant-badge hidden" id="participant-badge">PID: --</div>
+      <div class="session-timer-header hidden" id="session-timer-container">
+        <span class="timer-icon">⏱</span>
+        <span id="session-timer">00:00</span>
+      </div>
+    </div>
+    <div class="status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Disconnected</span>
+    </div>
+  </header>
+
+  <div id="waiting" class="waiting">
+    <div class="waiting-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+      </svg>
+    </div>
+    <h2>Waiting for experiment connection</h2>
+    <p>Start the experiment with the monitor parameter:</p>
+    <code>?monitor=ws://localhost:3001</code>
+  </div>
+
+  <main id="dashboard" class="main hidden">
+    <div class="timeline-panel">
+      <div class="panel-header">Experiment Timeline</div>
+
+      <div class="timeline" id="timeline">
+        <!-- Setup -->
+        <div class="timeline-section">
+          <div class="timeline-item pending" data-stage="setup">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">Setup</div>
+              <div class="timeline-sublabel">Fullscreen & Participant ID</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dial Instructions -->
+        <div class="timeline-section">
+          <div class="timeline-item pending" data-stage="instructions">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">Instructions</div>
+              <div class="timeline-sublabel">Dial usage & study overview</div>
+            </div>
+          </div>
+          <div class="instruction-container hidden" id="instructions-container">
+            <div class="instruction-stages" id="instructions-stages"></div>
+          </div>
+        </div>
+
+        <!-- Nature Practice -->
+        <div class="timeline-section">
+          <div class="timeline-item pending" data-stage="nature">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">Nature Practice</div>
+              <div class="timeline-sublabel">Practice video with ratings</div>
+            </div>
+          </div>
+          <div class="instruction-container hidden" id="nature-container">
+            <div class="instruction-stages" id="nature-stages"></div>
+          </div>
+        </div>
+
+        <!-- Block 1 -->
+        <div class="timeline-section" data-block="1">
+          <div class="timeline-item pending" data-stage="block1">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">
+                Block 1
+                <span class="block-badge" id="block1-badge">--</span>
+              </div>
+            </div>
+          </div>
+          <div class="block-container hidden" id="block1-container">
+            <div class="block-header">
+              <div class="block-title">
+                <span id="block1-type">Block 1</span>
+              </div>
+              <div class="block-progress" id="block1-progress">0 / 6 videos</div>
+            </div>
+            <div class="block-stages" id="block1-stages">
+              <div class="block-stage pending" data-substage="audio">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+                Audio Instructions
+              </div>
+              <div class="block-stage pending" data-substage="ra_wait">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                RA Q&A
+              </div>
+              <div class="block-stage pending" data-substage="practice">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                  </svg>
+                </div>
+                Practice Video
+              </div>
+            </div>
+            <div class="video-list" id="block1-videos"></div>
+          </div>
+        </div>
+
+        <!-- Block 2 -->
+        <div class="timeline-section" data-block="2">
+          <div class="timeline-item pending" data-stage="block2">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">
+                Block 2
+                <span class="block-badge" id="block2-badge">--</span>
+              </div>
+            </div>
+          </div>
+          <div class="block-container hidden" id="block2-container">
+            <div class="block-header">
+              <div class="block-title">
+                <span id="block2-type">Block 2</span>
+              </div>
+              <div class="block-progress" id="block2-progress">0 / 6 videos</div>
+            </div>
+            <div class="block-stages" id="block2-stages">
+              <div class="block-stage pending" data-substage="audio">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+                Audio Instructions
+              </div>
+              <div class="block-stage pending" data-substage="ra_wait">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                RA Q&A
+              </div>
+              <div class="block-stage pending" data-substage="practice">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                  </svg>
+                </div>
+                Practice Video
+              </div>
+            </div>
+            <div class="video-list" id="block2-videos"></div>
+          </div>
+        </div>
+
+        <!-- Block 3 -->
+        <div class="timeline-section" data-block="3">
+          <div class="timeline-item pending" data-stage="block3">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">
+                Block 3
+                <span class="block-badge" id="block3-badge">--</span>
+              </div>
+            </div>
+          </div>
+          <div class="block-container hidden" id="block3-container">
+            <div class="block-header">
+              <div class="block-title">
+                <span id="block3-type">Block 3</span>
+              </div>
+              <div class="block-progress" id="block3-progress">0 / 6 videos</div>
+            </div>
+            <div class="block-stages" id="block3-stages">
+              <div class="block-stage pending" data-substage="audio">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+                Audio Instructions
+              </div>
+              <div class="block-stage pending" data-substage="ra_wait">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                RA Q&A
+              </div>
+              <div class="block-stage pending" data-substage="practice">
+                <div class="stage-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                  </svg>
+                </div>
+                Practice Video
+              </div>
+            </div>
+            <div class="video-list" id="block3-videos"></div>
+          </div>
+        </div>
+
+        <!-- Complete -->
+        <div class="timeline-section">
+          <div class="timeline-item pending" data-stage="complete">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">Complete</div>
+              <div class="timeline-sublabel">Experiment finished</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="live-panel">
+      <div class="live-card">
+        <div class="live-header">
+          <div class="live-title">Live Arousal</div>
+          <div class="live-indicator hidden" id="live-indicator">
+            <div class="live-dot"></div>
+            RECORDING
+          </div>
+        </div>
+
+        <div class="dial-container">
+          <div class="dial-gauge">
+            <svg viewBox="0 0 100 100">
+              <circle class="dial-bg" cx="50" cy="50" r="42"></circle>
+              <circle class="dial-value" id="dial-arc" cx="50" cy="50" r="42"
+                      stroke-dasharray="263.9" stroke-dashoffset="263.9"></circle>
+            </svg>
+            <div class="dial-center">
+              <div class="dial-number" id="dial-number">--</div>
+              <div class="dial-label">Arousal</div>
+            </div>
+          </div>
+          <div class="dial-range">
+            <span>0</span>
+            <span>10</span>
+          </div>
+        </div>
+
+        <div class="sparkline-container">
+          <div class="sparkline-header">
+            <div class="sparkline-title">Dial History</div>
+            <div class="sparkline-stats" id="sparkline-stats">avg: -- | min: -- | max: --</div>
+          </div>
+          <div class="sparkline">
+            <svg id="sparkline-svg" viewBox="0 0 288 60" preserveAspectRatio="none">
+              <path class="sparkline-area" id="sparkline-area"></path>
+              <path class="sparkline-line" id="sparkline-line"></path>
+            </svg>
+          </div>
+        </div>
+
+        <div class="current-video" id="current-video-section">
+          <div class="current-video-label">Current Video</div>
+          <div class="current-video-name" id="current-video-name">--</div>
+        </div>
+
+        <div class="current-ratings" id="current-ratings">
+          <div class="ratings-title">Trial Ratings</div>
+          <div class="rating-row">
+            <div class="rating-name">
+              <div class="rating-dot arousal"></div>
+              Arousal
+            </div>
+            <div class="rating-value pending" id="rating-arousal">--</div>
+          </div>
+          <div class="rating-row">
+            <div class="rating-name">
+              <div class="rating-dot pleasure"></div>
+              Pleasure
+            </div>
+            <div class="rating-value pending" id="rating-pleasure">--</div>
+          </div>
+          <div class="rating-row">
+            <div class="rating-name">
+              <div class="rating-dot distraction"></div>
+              Distraction
+            </div>
+            <div class="rating-value pending" id="rating-distraction">--</div>
+          </div>
+          <div class="rating-row">
+            <div class="rating-name">
+              <div class="rating-dot immersion"></div>
+              Immersion
+            </div>
+            <div class="rating-value pending" id="rating-immersion">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // State
+    let state = {
+      connected: false,
+      participantId: null,
+      currentStage: null,
+      currentBlock: null,
+      currentBlockType: null,
+      currentSubstage: null,
+      currentVideo: null,
+      currentVideoIndex: 0,
+      dialValue: null,
+      isRecording: false,
+      currentTrialRatings: {},
+      blocks: {
+        1: { type: null, videosCompleted: 0, videos: [] },
+        2: { type: null, videosCompleted: 0, videos: [] },
+        3: { type: null, videosCompleted: 0, videos: [] }
+      },
+      sessionStartTime: null,
+      sessionTimerInterval: null,
+      dialHistory: [],
+      maxDialHistory: 120 // Keep last 60 seconds at 500ms intervals
+    };
+
+    // WebSocket with authentication
+    // Get token from sessionStorage or prompt user
+    function getToken() {
+      let token = sessionStorage.getItem('monitorToken');
+      if (!token) {
+        // Extract from basic auth if available, otherwise prompt
+        token = prompt('Enter monitor password:');
+        if (token) {
+          sessionStorage.setItem('monitorToken', token);
+        }
+      }
+      return token;
+    }
+
+    const token = getToken();
+    const wsUrl = `ws://${window.location.host}?type=dashboard&token=${encodeURIComponent(token || '')}`;
+    let ws;
+
+    function connect() {
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        state.connected = true;
+        updateConnectionStatus();
+      };
+
+      ws.onclose = (event) => {
+        state.connected = false;
+        updateConnectionStatus();
+        // If closed due to invalid token, clear and re-prompt
+        if (event.code === 4001) {
+          sessionStorage.removeItem('monitorToken');
+          alert('Invalid password. Please refresh and try again.');
+          return;
+        }
+        setTimeout(connect, 2000);
+      };
+
+      ws.onerror = console.error;
+
+      ws.onmessage = (event) => {
+        try {
+          handleMessage(JSON.parse(event.data));
+        } catch (e) {
+          console.error('Parse error:', e);
+        }
+      };
+    }
+
+    function updateConnectionStatus() {
+      const dot = document.getElementById('status-dot');
+      const text = document.getElementById('status-text');
+      dot.classList.toggle('connected', state.connected);
+      text.textContent = state.connected ? 'Connected' : 'Disconnected';
+    }
+
+    // Session Timer
+    function startSessionTimer() {
+      state.sessionStartTime = Date.now();
+      updateSessionTimer();
+      state.sessionTimerInterval = setInterval(updateSessionTimer, 1000);
+    }
+
+    function stopSessionTimer() {
+      if (state.sessionTimerInterval) {
+        clearInterval(state.sessionTimerInterval);
+        state.sessionTimerInterval = null;
+      }
+    }
+
+    function updateSessionTimer() {
+      if (!state.sessionStartTime) return;
+      const elapsed = Date.now() - state.sessionStartTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      document.getElementById('session-timer').textContent =
+        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Sparkline
+    function addDialToHistory(value) {
+      state.dialHistory.push(value);
+      if (state.dialHistory.length > state.maxDialHistory) {
+        state.dialHistory.shift();
+      }
+      updateSparkline();
+    }
+
+    function clearDialHistory() {
+      state.dialHistory = [];
+      updateSparkline();
+    }
+
+    function updateSparkline() {
+      const data = state.dialHistory;
+      const svg = document.getElementById('sparkline-svg');
+      const linePath = document.getElementById('sparkline-line');
+      const areaPath = document.getElementById('sparkline-area');
+      const stats = document.getElementById('sparkline-stats');
+
+      if (data.length < 2) {
+        linePath.setAttribute('d', '');
+        areaPath.setAttribute('d', '');
+        stats.textContent = 'avg: -- | min: -- | max: --';
+        return;
+      }
+
+      const width = 288;
+      const height = 60;
+      const padding = 2;
+      const graphHeight = height - padding * 2;
+
+      // Calculate stats
+      const avg = (data.reduce((a, b) => a + b, 0) / data.length).toFixed(1);
+      const min = Math.min(...data).toFixed(1);
+      const max = Math.max(...data).toFixed(1);
+      stats.textContent = `avg: ${avg} | min: ${min} | max: ${max}`;
+
+      // Generate path
+      const xStep = width / (data.length - 1);
+      let lineD = '';
+      let areaD = `M 0 ${height} `;
+
+      data.forEach((val, i) => {
+        const x = i * xStep;
+        const y = padding + graphHeight - (val / 10) * graphHeight;
+        if (i === 0) {
+          lineD += `M ${x} ${y}`;
+          areaD += `L ${x} ${y}`;
+        } else {
+          lineD += ` L ${x} ${y}`;
+          areaD += ` L ${x} ${y}`;
+        }
+      });
+
+      areaD += ` L ${width} ${height} Z`;
+
+      linePath.setAttribute('d', lineD);
+      areaPath.setAttribute('d', areaD);
+    }
+
+    // Instruction tracking on timeline
+    let currentInstructionElement = null;
+
+    function getInstructionContainer(task) {
+      // Map tasks to their container
+      if (task === 'dial_instructions' || task === 'study_overview') {
+        return 'instructions-stages';
+      } else if (task === 'nature_instructions') {
+        return 'nature-stages';
+      } else if (task.includes('audio_intro') || task.includes('ra_wait') ||
+                 task.includes('practice_intro') || task.includes('condition_instructions')) {
+        // Block instructions go in the block container
+        return null; // Handled by block stages
+      }
+      return null;
+    }
+
+    function showInstructionContainer(containerId) {
+      const container = document.getElementById(containerId.replace('-stages', '-container'));
+      if (container) {
+        container.classList.remove('hidden');
+      }
+    }
+
+    function addInstructionToTimeline(task, instruction) {
+      const containerId = getInstructionContainer(task);
+      if (!containerId) return;
+
+      showInstructionContainer(containerId);
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      // Check if instruction already exists
+      let existingItem = container.querySelector(`[data-instruction="${instruction}"]`);
+      if (!existingItem) {
+        const item = document.createElement('div');
+        item.className = 'instruction-stage active';
+        item.dataset.instruction = instruction;
+        item.innerHTML = `<span class="name">${instruction}</span>`;
+        container.appendChild(item);
+        currentInstructionElement = item;
+      } else {
+        // Mark as active
+        container.querySelectorAll('.instruction-stage').forEach(el => el.classList.remove('active'));
+        existingItem.classList.add('active');
+        existingItem.classList.remove('completed');
+        currentInstructionElement = existingItem;
+      }
+    }
+
+    function handleInstructionComplete(instruction, rt) {
+      const rtFormatted = rt ? `${(rt / 1000).toFixed(1)}s` : '';
+
+      // Find the instruction element and mark as completed with RT
+      if (currentInstructionElement && currentInstructionElement.dataset.instruction === instruction) {
+        currentInstructionElement.classList.remove('active');
+        currentInstructionElement.classList.add('completed');
+        // Add RT badge
+        if (rtFormatted && !currentInstructionElement.querySelector('.rt')) {
+          currentInstructionElement.innerHTML = `
+            <span class="name">${instruction}</span>
+            <span class="rt">${rtFormatted}</span>
+          `;
+        }
+        currentInstructionElement = null;
+      } else {
+        // Try to find it in all containers
+        document.querySelectorAll('.instruction-stage').forEach(el => {
+          if (el.dataset.instruction === instruction) {
+            el.classList.remove('active');
+            el.classList.add('completed');
+            if (rtFormatted && !el.querySelector('.rt')) {
+              el.innerHTML = `
+                <span class="name">${instruction}</span>
+                <span class="rt">${rtFormatted}</span>
+              `;
+            }
+          }
+        });
+      }
+    }
+
+    function handleMessage(msg) {
+      console.log('Received:', msg);
+
+      switch (msg.type) {
+        case 'session_start':
+          startSession(msg.participant_id);
+          break;
+
+        case 'stage_update':
+          updateStage(msg.stage, msg.substage, msg.block, msg.blockType);
+          break;
+
+        case 'trial_update':
+          handleTrialUpdate(msg);
+          break;
+
+        case 'dial_value':
+          updateDial(msg.value);
+          addDialToHistory(msg.value);
+          break;
+
+        case 'rating_submitted':
+          handleRating(msg.rating_type, msg.value, msg.rt);
+          break;
+
+        case 'instruction_complete':
+          handleInstructionComplete(msg.instruction, msg.rt);
+          break;
+
+        case 'session_end':
+          setStageActive('complete');
+          stopSessionTimer();
+          break;
+      }
+    }
+
+    function startSession(pid) {
+      state.participantId = pid;
+      document.getElementById('waiting').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      document.getElementById('participant-badge').classList.remove('hidden');
+      document.getElementById('participant-badge').textContent = `PID: ${pid}`;
+      document.getElementById('session-timer-container').classList.remove('hidden');
+
+      // Start session timer
+      startSessionTimer();
+
+      // Mark setup as completed, instructions as active
+      setStageCompleted('setup');
+      setStageActive('instructions');
+    }
+
+    function updateStage(stage, substage, blockNum, blockType) {
+      state.currentStage = stage;
+      state.currentSubstage = substage;
+
+      if (blockNum) {
+        state.currentBlock = blockNum;
+        if (blockType) {
+          state.currentBlockType = blockType;
+          state.blocks[blockNum].type = blockType;
+          updateBlockBadge(blockNum, blockType);
+        }
+      }
+
+      // Update timeline based on stage
+      if (stage === 'instructions') {
+        setStageCompleted('setup');
+        setStageActive('instructions');
+      } else if (stage === 'nature') {
+        setStageCompleted('instructions');
+        setStageActive('nature');
+      } else if (stage === 'block') {
+        setStageCompleted('nature');
+        for (let i = 1; i < blockNum; i++) {
+          setStageCompleted(`block${i}`);
+        }
+        setStageActive(`block${blockNum}`);
+        showBlockContainer(blockNum);
+        updateBlockSubstage(blockNum, substage);
+      } else if (stage === 'complete') {
+        setStageCompleted('block3');
+        setStageActive('complete');
+      }
+    }
+
+    function handleTrialUpdate(msg) {
+      // Determine stage from task
+      const task = msg.task;
+      const block = msg.block;
+
+      // Default: hide recording indicator unless explicitly showing it
+      const videoTasks = ['nature_video_dial', 'practice_video', 'video_dial_rating'];
+      if (!videoTasks.includes(task)) {
+        state.isRecording = false;
+        document.getElementById('live-indicator').classList.add('hidden');
+      } else {
+        // Clear dial history and ratings when starting a new video
+        clearDialHistory();
+        clearTrialRatings();
+      }
+
+      if (task === 'pid_entry' || task === 'fullscreen') {
+        setStageActive('setup');
+      } else if (task === 'dial_instructions' || task === 'study_overview') {
+        setStageCompleted('setup');
+        setStageActive('instructions');
+      } else if (task === 'nature_video_dial' || task === 'nature_instructions') {
+        setStageCompleted('instructions');
+        setStageActive('nature');
+        if (task === 'nature_video_dial') {
+          state.isRecording = true;
+          document.getElementById('live-indicator').classList.remove('hidden');
+          document.getElementById('current-video-name').textContent = 'nature.mp4';
+        }
+      } else if (task === 'audio_intro' || task === 'audio_play') {
+        handleBlockStage(block, 'audio');
+      } else if (task === 'ra_wait') {
+        handleBlockStage(block, 'ra_wait');
+      } else if (task === 'practice_video' || task === 'practice_intro') {
+        handleBlockStage(block, 'practice');
+        if (task === 'practice_video') {
+          state.isRecording = true;
+          document.getElementById('live-indicator').classList.remove('hidden');
+        }
+      } else if (task === 'video_dial_rating') {
+        handleVideoTrial(msg);
+      } else if (task === 'rating') {
+        // Rating in progress
+      } else if (task === 'condition_instructions') {
+        // After practice, before main videos
+        handleBlockStage(block, 'videos');
+      }
+
+      // Update current video display
+      if (msg.video && msg.video.name) {
+        document.getElementById('current-video-name').textContent = msg.video.name;
+        state.currentVideo = msg.video.name;
+      }
+
+      // Add instruction to timeline
+      if (msg.instruction && msg.task) {
+        addInstructionToTimeline(msg.task, msg.instruction);
+      }
+    }
+
+    function handleBlockStage(block, substage) {
+      if (!block) return;
+
+      const blockNum = block.order;
+      const blockType = block.type;
+
+      state.currentBlock = blockNum;
+      state.currentBlockType = blockType;
+      state.blocks[blockNum].type = blockType;
+
+      // Mark previous stages complete
+      setStageCompleted('nature');
+      for (let i = 1; i < blockNum; i++) {
+        setStageCompleted(`block${i}`);
+        hideBlockContainer(i);
+      }
+
+      setStageActive(`block${blockNum}`);
+      updateBlockBadge(blockNum, blockType);
+      showBlockContainer(blockNum);
+      updateBlockSubstage(blockNum, substage);
+    }
+
+    function handleVideoTrial(msg) {
+      const block = msg.block;
+      if (!block) return;
+
+      const blockNum = block.order;
+      const videoName = msg.video ? msg.video.name : null;
+      const trialInBlock = msg.video && msg.video.trial_in_block ? msg.video.trial_in_block : 1;
+
+      state.isRecording = true;
+      state.currentVideoIndex = trialInBlock;
+      state.currentBlock = blockNum;
+      document.getElementById('live-indicator').classList.remove('hidden');
+
+      // Reset trial ratings display
+      clearTrialRatings();
+
+      // Update block substages - all pre-video stages done
+      setBlockSubstageCompleted(blockNum, 'audio');
+      setBlockSubstageCompleted(blockNum, 'ra_wait');
+      setBlockSubstageCompleted(blockNum, 'practice');
+
+      // Ensure video list exists
+      ensureVideoList(blockNum);
+
+      // Mark current video active and update video name
+      const videoList = document.getElementById(`block${blockNum}-videos`);
+      const videoItems = videoList.querySelectorAll('.video-item');
+      videoItems.forEach((item, idx) => {
+        const isActive = idx + 1 === trialInBlock;
+        item.classList.toggle('active', isActive);
+        // Update video name if this is the active one
+        if (isActive && videoName) {
+          item.querySelector('.video-name').textContent = videoName;
+        }
+      });
+
+      // Update progress
+      document.getElementById(`block${blockNum}-progress`).textContent =
+        `${trialInBlock} / 6 videos`;
+    }
+
+    function clearTrialRatings() {
+      // Reset all rating displays to pending state
+      ['arousal', 'pleasure', 'distraction', 'immersion'].forEach(type => {
+        const el = document.getElementById(`rating-${type}`);
+        if (el) {
+          el.textContent = '--';
+          el.classList.add('pending');
+        }
+      });
+      // Clear state
+      state.currentTrialRatings = {};
+    }
+
+    function handleRating(type, value, rt) {
+      // Format RT for display
+      const rtFormatted = rt ? `${Math.round(rt / 1000 * 10) / 10}s` : '';
+
+      // Update live ratings panel
+      const el = document.getElementById(`rating-${type}`);
+      if (el) {
+        el.innerHTML = `${value} <span class="rt">${rtFormatted}</span>`;
+        el.classList.remove('pending');
+      }
+
+      state.currentTrialRatings[type] = { value, rt };
+
+      // Check if all 4 ratings collected - then video is complete
+      const ratings = state.currentTrialRatings;
+      if (ratings.arousal !== undefined && ratings.pleasure !== undefined &&
+          ratings.distraction !== undefined && ratings.immersion !== undefined) {
+        completeCurrentVideo();
+      }
+    }
+
+    function completeCurrentVideo() {
+      const blockNum = state.currentBlock;
+      if (!blockNum) return;
+
+      const videoIdx = state.currentVideoIndex;
+      const ratings = state.currentTrialRatings;
+
+      // Store in state
+      state.blocks[blockNum].videos[videoIdx - 1] = {
+        name: state.currentVideo,
+        ratings: { ...ratings }
+      };
+      state.blocks[blockNum].videosCompleted = videoIdx;
+
+      // Format RT helper
+      const formatRt = (rt) => rt ? `${Math.round(rt / 1000 * 10) / 10}s` : '';
+
+      // Update video list UI with ratings
+      const videoList = document.getElementById(`block${blockNum}-videos`);
+      const videoItem = videoList.querySelector(`.video-item:nth-child(${videoIdx})`);
+      if (videoItem) {
+        videoItem.classList.remove('active');
+        const ratingsDiv = videoItem.querySelector('.video-ratings');
+        ratingsDiv.innerHTML = `
+          <span class="mini-rating arousal" title="RT: ${formatRt(ratings.arousal.rt)}">${ratings.arousal.value}<span class="mini-rt">${formatRt(ratings.arousal.rt)}</span></span>
+          <span class="mini-rating pleasure" title="RT: ${formatRt(ratings.pleasure.rt)}">${ratings.pleasure.value}<span class="mini-rt">${formatRt(ratings.pleasure.rt)}</span></span>
+          <span class="mini-rating distraction" title="RT: ${formatRt(ratings.distraction.rt)}">${ratings.distraction.value}<span class="mini-rt">${formatRt(ratings.distraction.rt)}</span></span>
+          <span class="mini-rating immersion" title="RT: ${formatRt(ratings.immersion.rt)}">${ratings.immersion.value}<span class="mini-rt">${formatRt(ratings.immersion.rt)}</span></span>
+        `;
+      }
+
+      // Check if block complete
+      if (videoIdx >= 6) {
+        setStageCompleted(`block${blockNum}`);
+        if (blockNum < 3) {
+          // Next block will be set when its trial_update comes
+        } else {
+          setStageActive('complete');
+        }
+      }
+
+      // Reset for next video
+      state.currentTrialRatings = {};
+      state.isRecording = false;
+      document.getElementById('live-indicator').classList.add('hidden');
+    }
+
+    function ensureVideoList(blockNum) {
+      const videoList = document.getElementById(`block${blockNum}-videos`);
+      if (videoList.children.length === 0) {
+        for (let i = 1; i <= 6; i++) {
+          const item = document.createElement('div');
+          item.className = 'video-item';
+          item.innerHTML = `
+            <div class="video-number">${i}</div>
+            <div class="video-name">Video ${i}</div>
+            <div class="video-ratings"></div>
+          `;
+          videoList.appendChild(item);
+        }
+      }
+    }
+
+    function updateDial(value) {
+      state.dialValue = value;
+      const circumference = 263.9; // 2 * PI * 42
+      const offset = circumference - (value / 10) * circumference;
+
+      document.getElementById('dial-arc').style.strokeDashoffset = offset;
+      document.getElementById('dial-number').textContent = value.toFixed(1);
+    }
+
+    // Timeline helpers
+    function setStageActive(stage) {
+      document.querySelectorAll('.timeline-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      const item = document.querySelector(`[data-stage="${stage}"]`);
+      if (item) {
+        item.classList.remove('pending');
+        item.classList.add('active');
+      }
+    }
+
+    function setStageCompleted(stage) {
+      const item = document.querySelector(`[data-stage="${stage}"]`);
+      if (item) {
+        item.classList.remove('pending', 'active');
+        item.classList.add('completed');
+      }
+    }
+
+    function updateBlockBadge(blockNum, type) {
+      const badge = document.getElementById(`block${blockNum}-badge`);
+      if (badge) {
+        badge.textContent = type;
+        badge.className = `block-badge ${type}`;
+      }
+      const typeLabel = document.getElementById(`block${blockNum}-type`);
+      if (typeLabel) {
+        typeLabel.textContent = `Block ${blockNum} - ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+      }
+    }
+
+    function showBlockContainer(blockNum) {
+      const container = document.getElementById(`block${blockNum}-container`);
+      if (container) container.classList.remove('hidden');
+    }
+
+    function hideBlockContainer(blockNum) {
+      const container = document.getElementById(`block${blockNum}-container`);
+      if (container) container.classList.add('hidden');
+    }
+
+    function updateBlockSubstage(blockNum, substage) {
+      const stages = document.getElementById(`block${blockNum}-stages`);
+      if (!stages) return;
+
+      stages.querySelectorAll('.block-stage').forEach(stage => {
+        const stageType = stage.dataset.substage;
+        stage.classList.remove('active', 'completed');
+        stage.classList.add('pending');
+
+        if (stageType === substage) {
+          stage.classList.remove('pending');
+          stage.classList.add('active');
+        }
+      });
+    }
+
+    function setBlockSubstageCompleted(blockNum, substage) {
+      const stages = document.getElementById(`block${blockNum}-stages`);
+      if (!stages) return;
+
+      const stage = stages.querySelector(`[data-substage="${substage}"]`);
+      if (stage) {
+        stage.classList.remove('pending', 'active');
+        stage.classList.add('completed');
+      }
+    }
+
+    // Start
+    connect();
+  </script>
+</body>
+</html>
