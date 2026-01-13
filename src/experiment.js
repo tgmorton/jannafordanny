@@ -956,17 +956,28 @@ export async function run({
   function setupKaraokeSubtitles(audioElement, subtitles, subtitleElement) {
     var currentIndex = -1;
 
-    // Create the lyrics container with all lines
+    // Create the lyrics container with all lines (using Inter variable font for smooth weight transitions)
     function initializeLyrics() {
-      var html = '<div class="lyrics-container" style="position: relative;">';
+      // Load Inter variable font
+      if (!document.getElementById('inter-font-link')) {
+        var link = document.createElement('link');
+        link.id = 'inter-font-link';
+        link.rel = 'stylesheet';
+        link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap';
+        document.head.appendChild(link);
+      }
+
+      var html = '<div class="lyrics-container" style="position: relative; width: 80ch; max-width: 100%;">';
       for (var i = 0; i < subtitles.length; i++) {
         html += '<div class="lyric-line" data-index="' + i + '" style="' +
-          'padding: 10px 16px;' +
-          'margin: 4px 0;' +
-          'border-radius: 6px;' +
-          'transition: color 0.5s ease, background-color 0.5s ease, font-weight 0.5s ease;' +
-          'color: #aaa;' +
-          'font-size: 18px;' +
+          'padding: 16px 24px;' +
+          'margin: 14px 0;' +
+          'border-radius: 8px;' +
+          'transition: background-color 0.4s ease, font-weight 0.4s ease;' +
+          'color: #333;' +
+          "font-family: 'Inter', Helvetica, Arial, sans-serif;" +
+          'font-size: 26px;' +
+          'font-weight: 400;' +
           'line-height: 1.6;' +
           '">' + subtitles[i].text + '</div>';
       }
@@ -979,34 +990,49 @@ export async function run({
 
       lines.forEach(function(line, i) {
         if (i === newIndex) {
-          // Current line - highlighted
-          line.style.color = '#000';
-          line.style.fontWeight = '600';
-          line.style.backgroundColor = 'rgba(255, 235, 59, 0.2)';
-        } else if (i < newIndex) {
-          // Past lines - dimmed
-          line.style.color = '#777';
-          line.style.fontWeight = 'normal';
-          line.style.backgroundColor = 'transparent';
+          // Current line - highlighted with smooth bold transition
+          line.style.backgroundColor = 'rgba(255, 235, 59, 0.25)';
+          line.style.fontWeight = '650';
         } else {
-          // Future lines - more dimmed
-          line.style.color = '#aaa';
-          line.style.fontWeight = 'normal';
+          // All other lines - no highlight
           line.style.backgroundColor = 'transparent';
+          line.style.fontWeight = '400';
         }
       });
 
       // Smooth scroll to keep current line visible (centered in view)
+      // Delay scroll slightly so highlight changes first, then view follows
       if (newIndex >= 0 && lines[newIndex]) {
         var line = lines[newIndex];
-        var containerRect = subtitleElement.getBoundingClientRect();
-        var lineRect = line.getBoundingClientRect();
-        var scrollTarget = line.offsetTop - (containerRect.height / 2) + (lineRect.height / 2);
+        setTimeout(function() {
+          var containerRect = subtitleElement.getBoundingClientRect();
+          var scrollTarget = line.offsetTop - (containerRect.height / 2) + (line.offsetHeight / 2);
 
-        subtitleElement.scrollTo({
-          top: Math.max(0, scrollTarget),
-          behavior: 'smooth'
-        });
+          // Custom smooth scroll with slower duration
+          var startPos = subtitleElement.scrollTop;
+          var distance = scrollTarget - startPos;
+          var duration = 600; // ms
+          var startTime = null;
+
+          function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+          }
+
+          function animateScroll(currentTime) {
+            if (!startTime) startTime = currentTime;
+            var elapsed = currentTime - startTime;
+            var progress = Math.min(elapsed / duration, 1);
+            var easedProgress = easeOutCubic(progress);
+
+            subtitleElement.scrollTop = startPos + (distance * easedProgress);
+
+            if (progress < 1) {
+              requestAnimationFrame(animateScroll);
+            }
+          }
+
+          requestAnimationFrame(animateScroll);
+        }, 200); // 200ms delay before scrolling starts
       }
     }
 
@@ -1103,7 +1129,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/natural.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Natural Instructions Now Playing</h2>
-            <div id="subtitle-display" style="text-align: center; max-width: 800px; width: 100%; height: 300px; overflow-y: auto; overflow-x: hidden; padding: 20px; background: #f9f9f9; border-radius: 10px; position: relative; scroll-behavior: smooth;"></div>
+            <style>.subtitle-scroll::-webkit-scrollbar{display:none}.subtitle-scroll{-ms-overflow-style:none;scrollbar-width:none}</style><div id="subtitle-display" class="subtitle-scroll" style="text-align: center; width: 85ch; max-width: 95vw; height: 550px; overflow-y: auto; overflow-x: hidden; padding: 40px; background: #f9f9f9; border-radius: 12px; position: relative; scroll-behavior: smooth;"></div>
           </div>
         `,
         choices: ["n", "N"],
@@ -1205,7 +1231,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/participate.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Participating Instructions Now Playing</h2>
-            <div id="subtitle-display" style="text-align: center; max-width: 800px; width: 100%; height: 300px; overflow-y: auto; overflow-x: hidden; padding: 20px; background: #f9f9f9; border-radius: 10px; position: relative; scroll-behavior: smooth;"></div>
+            <style>.subtitle-scroll::-webkit-scrollbar{display:none}.subtitle-scroll{-ms-overflow-style:none;scrollbar-width:none}</style><div id="subtitle-display" class="subtitle-scroll" style="text-align: center; width: 85ch; max-width: 95vw; height: 550px; overflow-y: auto; overflow-x: hidden; padding: 40px; background: #f9f9f9; border-radius: 12px; position: relative; scroll-behavior: smooth;"></div>
           </div>
         `,
         choices: ["n", "N"],
@@ -1306,7 +1332,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/observe.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Observing Instructions Now Playing</h2>
-            <div id="subtitle-display" style="text-align: center; max-width: 800px; width: 100%; height: 300px; overflow-y: auto; overflow-x: hidden; padding: 20px; background: #f9f9f9; border-radius: 10px; position: relative; scroll-behavior: smooth;"></div>
+            <style>.subtitle-scroll::-webkit-scrollbar{display:none}.subtitle-scroll{-ms-overflow-style:none;scrollbar-width:none}</style><div id="subtitle-display" class="subtitle-scroll" style="text-align: center; width: 85ch; max-width: 95vw; height: 550px; overflow-y: auto; overflow-x: hidden; padding: 40px; background: #f9f9f9; border-radius: 12px; position: relative; scroll-behavior: smooth;"></div>
           </div>
         `,
         choices: ["n", "N"],
