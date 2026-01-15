@@ -29,7 +29,14 @@ export async function run({
   version,
 }) {
   // === Progress Monitor Setup (opt-in via ?monitor= URL param) ===
-  const monitorUrl = new URLSearchParams(window.location.search).get('monitor');
+  // In JATOS, URL params are accessed via jatos.urlQueryParameters
+  // Fall back to window.location.search for local testing
+  let monitorUrl = null;
+  if (typeof jatos !== 'undefined' && jatos.urlQueryParameters && jatos.urlQueryParameters.monitor) {
+    monitorUrl = jatos.urlQueryParameters.monitor;
+  } else {
+    monitorUrl = new URLSearchParams(window.location.search).get('monitor');
+  }
   let monitorSocket = null;
 
   if (monitorUrl) {
