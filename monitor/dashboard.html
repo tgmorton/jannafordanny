@@ -792,7 +792,7 @@
     </div>
     <h2>Waiting for experiment connection</h2>
     <p>Start the experiment with the monitor parameter:</p>
-    <code>?monitor=ws://localhost:3001</code>
+    <code>?monitor=wss://swaglab.ucsd.edu/monitor</code>
   </div>
 
   <main id="dashboard" class="main hidden">
@@ -1148,7 +1148,8 @@
     }
 
     const token = getToken();
-    const wsUrl = `ws://${window.location.host}?type=dashboard&token=${encodeURIComponent(token || '')}`;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/monitor?type=dashboard&token=${encodeURIComponent(token || '')}`;
     let ws;
 
     function connect() {

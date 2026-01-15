@@ -37,11 +37,16 @@ function basicAuth(req, res, next) {
   }
 }
 
-// Apply auth to dashboard routes
-app.use(basicAuth);
-app.use(express.static(__dirname));
-app.get('/', (req, res) => {
+// Apply auth to dashboard routes under /monitor path
+app.use('/monitor', basicAuth);
+app.use('/monitor', express.static(__dirname));
+app.get('/monitor', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+
+// Redirect root to /monitor for convenience
+app.get('/', (req, res) => {
+  res.redirect('/monitor');
 });
 
 // Track connections
