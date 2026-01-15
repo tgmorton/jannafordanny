@@ -1,7 +1,7 @@
 /**
  * @title test
  * @description test
- * @version 2.0.0
+ * @version 2.1.0
  *
  * @assets assets/
  */
@@ -81,6 +81,17 @@ export async function run({
       if (typeof jatos !== 'undefined' && jatos.submitResultData) {
         jatos.submitResultData(data);
       }
+    }
+  });
+
+  // Global click handler - uses jsPsych's simulation API
+  // This allows the dial button click to work as a universal "proceed" action
+  document.addEventListener("mousedown", function(e) {
+    if (e.button === 0) { // Primary mouse button only
+      console.log("Click detected, simulating 'n' keypress via jsPsych");
+      // Use jsPsych's built-in key simulation
+      jsPsych.pluginAPI.keyDown('n');
+      jsPsych.pluginAPI.keyUp('n');
     }
   });
 
@@ -477,6 +488,12 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "nature_instructions" },
+    on_start: function() {
+      sendMonitorUpdate({ type: 'trial_update', task: 'nature_instructions', instruction: 'Nature Instructions' });
+    },
+    on_finish: function(data) {
+      sendMonitorUpdate({ type: 'instruction_complete', task: 'nature_instructions', instruction: 'Nature Instructions', rt: data.rt });
+    }
   };
 
   // Nature video - auto advances when done, can skip with 'n'
@@ -511,6 +528,7 @@ export async function run({
           </defs>
           <circle cx="150" cy="150" r="145" fill="#050505" stroke="#333" stroke-width="2" />
           <g>
+            <!-- Major ticks (integers 0-10) -->
             <line x1="58.1" y1="241.9" x2="68.7" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
             <line x1="26.4" y1="190.2" x2="40.6" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
             <line x1="21.6" y1="129.7" x2="36.4" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
@@ -522,6 +540,17 @@ export async function run({
             <line x1="278.4" y1="129.7" x2="263.6" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
             <line x1="273.6" y1="190.2" x2="259.4" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
             <line x1="241.9" y1="241.9" x2="231.3" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
+            <!-- Minor ticks (0.5 increments) -->
+            <line x1="39.2" y1="217.9" x2="46.0" y2="213.7" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="20.4" y1="160.2" x2="28.4" y2="159.6" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="29.9" y1="100.3" x2="37.3" y2="103.3" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="65.6" y1="51.1" x2="70.8" y2="57.2" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="119.7" y1="23.6" x2="121.5" y2="31.4" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="180.3" y1="23.6" x2="178.5" y2="31.4" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="234.4" y1="51.1" x2="229.2" y2="57.2" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="270.1" y1="100.3" x2="262.7" y2="103.3" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="279.6" y1="160.2" x2="271.6" y2="159.6" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+            <line x1="260.8" y1="217.9" x2="254.0" y2="213.7" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
           </g>
           <g>
             <text x="82.8" y="217.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">0</text>
@@ -547,6 +576,39 @@ export async function run({
       </div>
     `;
   }
+
+  // Dial calibration screen - center the dial before instructions
+  var dial_calibration = {
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 40px;">
+        <h1 style="font-size: 36px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Dial Calibration</h1>
+        <p style="font-size: 22px; color: #555; margin-bottom: 40px; text-align: center; max-width: 600px;">
+          Turn the dial until the arrow <strong>points straight up</strong>
+        </p>
+
+        <!-- Target indicator: solid black circle with white triangle at top -->
+        <svg width="200" height="200" viewBox="0 0 200 200">
+          <!-- Solid black circle with dark gray outline -->
+          <circle cx="100" cy="100" r="80" fill="#000000" stroke="#444444" stroke-width="3"/>
+          <!-- White triangle pointer inside at top -->
+          <polygon points="100,30 85,55 115,55" fill="#ffffff"/>
+        </svg>
+
+        <p style="font-size: 18px; color: #888; margin-top: 40px;">
+          When the arrow points up, <strong>click the dial button</strong> to continue
+        </p>
+      </div>
+    `,
+    choices: ["n", "N"],
+    data: { task: "dial_calibration" },
+    on_start: function() {
+      sendMonitorUpdate({ type: 'trial_update', task: 'dial_calibration', instruction: 'Dial Calibration' });
+    },
+    on_finish: function(data) {
+      sendMonitorUpdate({ type: 'instruction_complete', task: 'dial_calibration', instruction: 'Dial Calibration', rt: data.rt });
+    }
+  };
 
   var dial_instructions = {
     type: HtmlKeyboardResponsePlugin,
@@ -576,23 +638,19 @@ export async function run({
               <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 2: Adjust Continuously During the Video</p>
               <p style="font-size: 18px; margin: 0 0 12px 0; line-height: 1.5;">As you watch, <strong>turn the dial</strong> to adjust your rating:</p>
               <ul style="font-size: 18px; margin: 0; padding-left: 25px; line-height: 1.8;">
-                <li><strong>Turn RIGHT</strong> = Your sexual arousal is <strong>increasing</strong></li>
-                <li><strong>Turn LEFT</strong> = Your sexual arousal is <strong>decreasing</strong></li>
+                <li><strong>Turn RIGHT (clockwise)</strong> = Your sexual arousal is <strong>increasing</strong></li>
+                <li><strong>Turn LEFT (counter-clockwise)</strong> = Your sexual arousal is <strong>decreasing</strong></li>
               </ul>
               <p style="font-size: 16px; margin: 15px 0 0 0; color: #555; line-height: 1.5;">Turn the dial when you notice a change in your sexual arousal, however slight. There is no right or wrong answer. Simply reflect what you are feeling in the moment.</p>
             </div>
 
             <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 18px 22px; margin-bottom: 20px;">
-              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 3: Set Your Baseline (10 seconds before each video)</p>
-              <p style="font-size: 18px; margin: 0; line-height: 1.5;">Before the video starts, you will have <strong>10 seconds</strong> to set the dial to your <strong>current</strong> level of sexual arousal. Use this time to adjust the dial to where you are <strong>right now</strong>.</p>
+              <p style="font-size: 20px; font-weight: bold; margin: 0 0 10px 0;">Step 3: Set Your Baseline Before Each Video</p>
+              <p style="font-size: 18px; margin: 0; line-height: 1.5;">Before each video starts, you will set the dial to your <strong>current</strong> level of sexual arousal, then <strong>click the dial button</strong> to begin the video.</p>
             </div>
 
-            <p style="font-size: 16px; color: #555; margin-top: 20px; line-height: 1.5;">
-              <strong>Try it now!</strong> Turn the dial on the right to see how it responds.
-            </p>
-
-            <p style="font-size: 16px; color: #888; margin-top: 15px;">
-              Press <strong>N</strong> to continue when ready.
+            <p style="font-size: 18px; color: #555; margin-top: 30px;">
+              <strong>Click the dial button</strong> to continue.
             </p>
           </div>
           <div style="flex-shrink: 0; text-align: center;">
@@ -605,13 +663,14 @@ export async function run({
     choices: ["n", "N"],
     data: { task: "dial_instructions" },
     on_load: function() {
-      // Make the dial interactive
+      // Make the dial interactive with wheel input
       var dialPointer = document.getElementById("instruction-dial-pointer");
       var dialValueDisplay = document.getElementById("dial-value-display");
       var currentValue = 5;
       var angleStart = 225;
       var angleEnd = -45;
       var angleRange = angleStart - angleEnd;
+      var scrollStep = 0.5;
 
       function valueToAngle(value) {
         var normalized = value / 10;
@@ -626,36 +685,48 @@ export async function run({
         dialValueDisplay.textContent = "Current Value: " + Math.round(currentValue * 10) / 10;
       }
 
-      // Track mouse/touch position for dial control
-      var handleMove = function(e) {
-        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        var windowHeight = window.innerHeight;
-        var margin = windowHeight * 0.3;
-        var usableHeight = windowHeight - (margin * 2);
-
-        var newValue;
-        if (clientY <= margin) {
-          newValue = 10;
-        } else if (clientY >= windowHeight - margin) {
-          newValue = 0;
-        } else {
-          var positionInUsable = clientY - margin;
-          var normalizedPosition = 1 - (positionInUsable / usableHeight);
-          newValue = normalizedPosition * 10;
-        }
+      // Handle wheel input for dial control
+      var handleWheel = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Counter-clockwise on physical dial (positive deltaY) = clockwise on screen = increase value
+        var scrollDirection = e.deltaY > 0 ? 1 : -1;
+        var newValue = currentValue + (scrollDirection * scrollStep);
         updateDial(newValue);
       };
 
-      document.addEventListener("mousemove", handleMove);
-      document.addEventListener("touchmove", handleMove, { passive: true });
+      document.addEventListener("wheel", handleWheel, { passive: false });
+      window.addEventListener("wheel", handleWheel, { passive: false });
 
-      // Initialize dial position
-      updateDial(5);
+      // Persist dial value when proceeding (click is handled globally)
+      var clickHandler = function(e) {
+        if (e.button === 0) {
+          window.__dialPersistedValue = currentValue;
+          console.log("Calibration complete, persisted value:", currentValue);
+        }
+      };
+      document.addEventListener("click", clickHandler);
+
+      // Store cleanup function
+      window._dialInstructionsCleanup = function() {
+        document.removeEventListener("wheel", handleWheel);
+        window.removeEventListener("wheel", handleWheel);
+        document.removeEventListener("click", clickHandler);
+      };
+
+      // Initialize dial position - use persisted value if available
+      var startValue = window.__dialPersistedValue !== undefined ? window.__dialPersistedValue : 5;
+      updateDial(startValue);
     },
     on_start: function() {
       sendMonitorUpdate({ type: 'trial_update', task: 'dial_instructions', instruction: 'Dial Instructions' });
     },
     on_finish: function(data) {
+      // Clean up wheel listeners
+      if (window._dialInstructionsCleanup) {
+        window._dialInstructionsCleanup();
+        delete window._dialInstructionsCleanup;
+      }
       sendMonitorUpdate({ type: 'instruction_complete', task: 'dial_instructions', instruction: 'Dial Instructions', rt: data.rt });
     }
   };
@@ -749,7 +820,7 @@ export async function run({
             </p>
           </div>
           <p style="font-size: 18px; color: #555; margin-bottom: 20px;">
-            If you can hear the audio clearly, press <strong>N</strong> to continue to the dial test.
+            If you can hear the audio clearly, <strong>click the dial button</strong> to continue to the dial test.
           </p>
           <p style="font-size: 16px; color: #999; font-style: italic;">
             (RA: If there are audio issues, please assist the participant before continuing)
@@ -759,12 +830,18 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "audio_test" },
+    on_start: function() {
+      sendMonitorUpdate({ type: 'trial_update', task: 'audio_test', instruction: 'Audio Test' });
+    },
     on_load: function() {
       // Stop audio when trial ends
       var audio = document.getElementById("test-audio");
       if (audio) {
         audio.volume = 0.5; // Set moderate default volume
       }
+    },
+    on_finish: function(data) {
+      sendMonitorUpdate({ type: 'instruction_complete', task: 'audio_test', instruction: 'Audio Test', rt: data.rt });
     }
   };
 
@@ -785,9 +862,13 @@ export async function run({
             <p style="font-size: 18px; color: #555; margin-bottom: 20px; line-height: 1.6;">
               The dial should respond smoothly to your movements. You will use this dial throughout the study to rate your arousal level while watching videos.
             </p>
-            <p style="font-size: 18px; color: #555; margin-bottom: 30px;">
-              When you are comfortable with how the dial works, press <strong>N</strong> to continue.
-            </p>
+            <div style="background: #f3e5f5; border-left: 4px solid #9c27b0; padding: 18px 22px; margin-bottom: 25px;">
+              <p style="font-size: 18px; font-weight: bold; margin: 0 0 10px 0;">When ready:</p>
+              <ol style="font-size: 18px; margin: 0; padding-left: 25px; line-height: 1.8;">
+                <li>Turn the dial until the arrow <strong>points straight up (to 5)</strong></li>
+                <li><strong>Click the dial button</strong> to continue</li>
+              </ol>
+            </div>
             <p style="font-size: 16px; color: #999; font-style: italic;">
               (RA: If the dial is not responding, please check the equipment before continuing)
             </p>
@@ -804,6 +885,7 @@ export async function run({
                 </defs>
                 <circle cx="150" cy="150" r="145" fill="#050505" stroke="#333" stroke-width="2" />
                 <g>
+                  <!-- Major ticks (integers 0-10) -->
                   <line x1="58.1" y1="241.9" x2="68.7" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
                   <line x1="26.4" y1="190.2" x2="40.6" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
                   <line x1="21.6" y1="129.7" x2="36.4" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
@@ -815,6 +897,17 @@ export async function run({
                   <line x1="278.4" y1="129.7" x2="263.6" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
                   <line x1="273.6" y1="190.2" x2="259.4" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
                   <line x1="241.9" y1="241.9" x2="231.3" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
+                  <!-- Minor ticks (0.5 increments) -->
+                  <line x1="39.2" y1="217.9" x2="46.0" y2="213.7" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="20.4" y1="160.2" x2="28.4" y2="159.6" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="29.9" y1="100.3" x2="37.3" y2="103.3" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="65.6" y1="51.1" x2="70.8" y2="57.2" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="119.7" y1="23.6" x2="121.5" y2="31.4" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="180.3" y1="23.6" x2="178.5" y2="31.4" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="234.4" y1="51.1" x2="229.2" y2="57.2" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="270.1" y1="100.3" x2="262.7" y2="103.3" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="279.6" y1="160.2" x2="271.6" y2="159.6" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                  <line x1="260.8" y1="217.9" x2="254.0" y2="213.7" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
                 </g>
                 <g>
                   <text x="82.8" y="217.2" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="20" text-anchor="middle" dominant-baseline="middle">0</text>
@@ -844,14 +937,18 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "dial_test" },
+    on_start: function() {
+      sendMonitorUpdate({ type: 'trial_update', task: 'dial_test', instruction: 'Dial Test' });
+    },
     on_load: function() {
-      // Make the dial interactive
+      // Make the dial interactive with wheel input
       var dialPointer = document.getElementById("test-dial-pointer");
       var dialValueDisplay = document.getElementById("test-dial-value");
       var currentValue = 5;
       var angleStart = 225;
       var angleEnd = -45;
       var angleRange = angleStart - angleEnd;
+      var scrollStep = 0.5;
 
       function valueToAngle(value) {
         var normalized = value / 10;
@@ -866,37 +963,53 @@ export async function run({
         dialValueDisplay.textContent = "Current Value: " + Math.round(currentValue * 10) / 10;
       }
 
-      // Track mouse/touch position for dial control
-      var handleMove = function(e) {
-        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        var windowHeight = window.innerHeight;
-        var margin = windowHeight * 0.3;
-        var usableHeight = windowHeight - (margin * 2);
-
-        var newValue;
-        if (clientY <= margin) {
-          newValue = 10;
-        } else if (clientY >= windowHeight - margin) {
-          newValue = 0;
-        } else {
-          var positionInUsable = clientY - margin;
-          var normalizedPosition = 1 - (positionInUsable / usableHeight);
-          newValue = normalizedPosition * 10;
-        }
+      // Handle wheel input for dial control
+      var handleWheel = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Counter-clockwise on physical dial (positive deltaY) = clockwise on screen = increase value
+        var scrollDirection = e.deltaY > 0 ? 1 : -1;
+        var newValue = currentValue + (scrollDirection * scrollStep);
         updateDial(newValue);
       };
 
-      document.addEventListener("mousemove", handleMove);
-      document.addEventListener("touchmove", handleMove, { passive: true });
+      document.addEventListener("wheel", handleWheel, { passive: false });
+      window.addEventListener("wheel", handleWheel, { passive: false });
 
-      // Initialize dial position
-      updateDial(5);
+      // Persist dial value when proceeding (click is handled globally)
+      var clickHandler = function(e) {
+        if (e.button === 0) {
+          window.__dialPersistedValue = currentValue;
+          console.log("Dial test complete, persisted value:", currentValue);
+        }
+      };
+      document.addEventListener("click", clickHandler);
+
+      // Store cleanup function
+      window._dialTestCleanup = function() {
+        document.removeEventListener("wheel", handleWheel);
+        window.removeEventListener("wheel", handleWheel);
+        document.removeEventListener("click", clickHandler);
+      };
+
+      // Initialize dial position - use persisted value if available
+      var startValue = window.__dialPersistedValue !== undefined ? window.__dialPersistedValue : 5;
+      updateDial(startValue);
+    },
+    on_finish: function(data) {
+      // Clean up wheel listeners
+      if (window._dialTestCleanup) {
+        window._dialTestCleanup();
+        delete window._dialTestCleanup;
+      }
+      sendMonitorUpdate({ type: 'instruction_complete', task: 'dial_test', instruction: 'Dial Test', rt: data.rt });
     }
   };
 
   // Build timeline - removed fullscreen entry, now starts with preload and equipment tests
   timeline.push(preload);
   timeline.push(audio_test);
+  timeline.push(dial_calibration);
   timeline.push(dial_test);
   timeline.push(pid_loop);
 
@@ -912,7 +1025,8 @@ export async function run({
     data: { task: "transition" },
   });
 
-  // Add dial instructions BEFORE nature video so participants know how to use it
+  // Add dial calibration and instructions BEFORE nature video so participants know how to use it
+  timeline.push(dial_calibration);
   timeline.push(dial_instructions);
 
   // Transition before nature video

@@ -800,6 +800,24 @@
       <div class="panel-header">Experiment Timeline</div>
 
       <div class="timeline" id="timeline">
+        <!-- Equipment Setup -->
+        <div class="timeline-section">
+          <div class="timeline-item pending" data-stage="equipment">
+            <div class="timeline-marker">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-label">Equipment Setup</div>
+              <div class="timeline-sublabel">Audio & dial calibration</div>
+            </div>
+          </div>
+          <div class="instruction-container hidden" id="equipment-container">
+            <div class="instruction-stages" id="equipment-stages"></div>
+          </div>
+        </div>
+
         <!-- Setup -->
         <div class="timeline-section">
           <div class="timeline-item pending" data-stage="setup">
@@ -810,7 +828,7 @@
             </div>
             <div class="timeline-content">
               <div class="timeline-label">Setup</div>
-              <div class="timeline-sublabel">Fullscreen & Participant ID</div>
+              <div class="timeline-sublabel">Participant ID</div>
             </div>
           </div>
         </div>
@@ -1280,7 +1298,9 @@
 
     function getInstructionContainer(task) {
       // Map tasks to their container
-      if (task === 'dial_instructions' || task === 'study_overview') {
+      if (task === 'audio_test' || task === 'dial_calibration' || task === 'dial_test') {
+        return 'equipment-stages';
+      } else if (task === 'dial_instructions' || task === 'study_overview') {
         return 'instructions-stages';
       } else if (task === 'nature_instructions') {
         return 'nature-stages';
@@ -1404,7 +1424,8 @@
       // Start session timer
       startSessionTimer();
 
-      // Mark setup as completed, instructions as active
+      // Mark equipment and setup as completed, instructions as active
+      setStageCompleted('equipment');
       setStageCompleted('setup');
       setStageActive('instructions');
     }
@@ -1423,13 +1444,24 @@
       }
 
       // Update timeline based on stage
-      if (stage === 'instructions') {
+      if (stage === 'equipment') {
+        setStageActive('equipment');
+      } else if (stage === 'setup') {
+        setStageCompleted('equipment');
+        setStageActive('setup');
+      } else if (stage === 'instructions') {
+        setStageCompleted('equipment');
         setStageCompleted('setup');
         setStageActive('instructions');
       } else if (stage === 'nature') {
+        setStageCompleted('equipment');
+        setStageCompleted('setup');
         setStageCompleted('instructions');
         setStageActive('nature');
       } else if (stage === 'block') {
+        setStageCompleted('equipment');
+        setStageCompleted('setup');
+        setStageCompleted('instructions');
         setStageCompleted('nature');
         for (let i = 1; i < blockNum; i++) {
           setStageCompleted(`block${i}`);
@@ -1459,12 +1491,18 @@
         clearTrialRatings();
       }
 
-      if (task === 'pid_entry' || task === 'fullscreen') {
+      if (task === 'audio_test' || task === 'dial_calibration' || task === 'dial_test') {
+        setStageActive('equipment');
+      } else if (task === 'pid_entry' || task === 'fullscreen') {
+        setStageCompleted('equipment');
         setStageActive('setup');
       } else if (task === 'dial_instructions' || task === 'study_overview') {
+        setStageCompleted('equipment');
         setStageCompleted('setup');
         setStageActive('instructions');
       } else if (task === 'nature_video_dial' || task === 'nature_instructions') {
+        setStageCompleted('equipment');
+        setStageCompleted('setup');
         setStageCompleted('instructions');
         setStageActive('nature');
         if (task === 'nature_video_dial') {
@@ -1514,6 +1552,9 @@
       state.blocks[blockNum].type = blockType;
 
       // Mark previous stages complete
+      setStageCompleted('equipment');
+      setStageCompleted('setup');
+      setStageCompleted('instructions');
       setStageCompleted('nature');
       for (let i = 1; i < blockNum; i++) {
         setStageCompleted(`block${i}`);

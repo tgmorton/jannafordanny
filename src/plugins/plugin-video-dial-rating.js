@@ -74,6 +74,16 @@ const info = {
       type: ParameterType.INT,
       default: 10,
     },
+    /** How much each scroll step changes the dial value */
+    scroll_step: {
+      type: ParameterType.FLOAT,
+      default: 0.5,
+    },
+    /** Whether to use persisted dial value from previous trial */
+    use_persisted_value: {
+      type: ParameterType.BOOL,
+      default: true,
+    },
   },
 };
 
@@ -89,8 +99,13 @@ class VideoDialRatingPlugin {
     console.log("Trial stimulus:", trial.stimulus);
     console.log("Trial params:", trial);
 
-    // State variables
-    this.currentValue = trial.dial_start;
+    // State variables - use persisted value if available and enabled
+    if (trial.use_persisted_value && window.__dialPersistedValue !== undefined) {
+      this.currentValue = window.__dialPersistedValue;
+      console.log("Using persisted dial value:", this.currentValue);
+    } else {
+      this.currentValue = trial.dial_start;
+    }
     this.dialMin = trial.dial_min;
     this.dialMax = trial.dial_max;
     this.ratingsHistory = [];
@@ -99,6 +114,8 @@ class VideoDialRatingPlugin {
     this.samplingInterval = null;
     this.videoStarted = false;
     this.isRecording = false;
+    this.scrollStep = trial.scroll_step;
+    this.dialReady = false; // Whether user has confirmed dial is pointing up
 
     // Dial angle mapping: 0 = 225° (bottom-left), 10 = -45° (bottom-right)
     // This is a 270° arc, so each unit is 27°
@@ -123,15 +140,15 @@ class VideoDialRatingPlugin {
           align-items: center;
           gap: 0px;
           cursor: none;
-          ${isFullscreen ? 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000;' : ''}
+          ${isFullscreen ? 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000;' : 'position: relative;'}
         }
         #dial-container {
-          position: ${isFullscreen ? 'fixed' : 'relative'};
-          ${isFullscreen ? 'top: 20px; left: 50%; transform: translateX(-50%); z-index: 100;' : ''}
+          position: ${isFullscreen ? 'fixed' : 'absolute'};
+          ${isFullscreen ? 'bottom: 20px; right: 20px; z-index: 100;' : 'bottom: 20px; right: 20px;'}
           width: 150px;
           height: 150px;
-          ${isFullscreen ? '' : 'margin: 10px 0;'}
-          ${isFullscreen ? 'border: 3px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.5);' : ''}
+          visibility: hidden;
+          ${isFullscreen ? 'border: 3px solid white; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.5);' : 'border: 3px solid #333; border-radius: 50%;'}
         }
         #dial-svg {
           width: 100%;
@@ -173,6 +190,9 @@ class VideoDialRatingPlugin {
           align-items: center;
           z-index: 10;
         }
+        #overlay-phase {
+          display: none;
+        }
         #overlay-text {
           color: white;
           font-size: 24px;
@@ -180,11 +200,32 @@ class VideoDialRatingPlugin {
           max-width: 80%;
           line-height: 1.5;
         }
+        #overlay-instruction {
+          color: #aaa;
+          font-size: 18px;
+          text-align: center;
+          margin-top: 15px;
+        }
         #countdown-number {
           color: white;
           font-size: 72px;
           font-weight: bold;
           margin-top: 20px;
+        }
+        #centering-target {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          z-index: 1000;
+          width: 150px;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 3px solid white;
+          border-radius: 50%;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+          background: #000;
         }
         * {
           cursor: none !important;
@@ -219,25 +260,25 @@ class VideoDialRatingPlugin {
             <!-- Ticks -->
             <g>
               <line x1="58.1" y1="241.9" x2="68.7" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="39.2" y1="217.9" x2="46.0" y2="213.7" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="39.2" y1="217.9" x2="46.0" y2="213.7" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="26.4" y1="190.2" x2="40.6" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="20.4" y1="160.2" x2="28.4" y2="159.6" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="20.4" y1="160.2" x2="28.4" y2="159.6" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="21.6" y1="129.7" x2="36.4" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="29.9" y1="100.3" x2="37.3" y2="103.3" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="29.9" y1="100.3" x2="37.3" y2="103.3" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="44.8" y1="73.6" x2="57.0" y2="82.4" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="65.6" y1="51.1" x2="70.8" y2="57.2" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="65.6" y1="51.1" x2="70.8" y2="57.2" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="91.0" y1="34.2" x2="97.8" y2="47.5" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="119.7" y1="23.6" x2="121.5" y2="31.4" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="119.7" y1="23.6" x2="121.5" y2="31.4" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="150.0" y1="20.0" x2="150.0" y2="35.0" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="180.3" y1="23.6" x2="178.5" y2="31.4" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="180.3" y1="23.6" x2="178.5" y2="31.4" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="209.0" y1="34.2" x2="202.2" y2="47.5" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="234.4" y1="51.1" x2="229.2" y2="57.2" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="234.4" y1="51.1" x2="229.2" y2="57.2" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="255.2" y1="73.6" x2="243.0" y2="82.4" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="270.1" y1="100.3" x2="262.7" y2="103.3" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="270.1" y1="100.3" x2="262.7" y2="103.3" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="278.4" y1="129.7" x2="263.6" y2="132.0" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="279.6" y1="160.2" x2="271.6" y2="159.6" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="279.6" y1="160.2" x2="271.6" y2="159.6" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="273.6" y1="190.2" x2="259.4" y2="185.5" stroke="white" stroke-width="3" stroke-linecap="round" />
-              <line x1="260.8" y1="217.9" x2="254.0" y2="213.7" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="260.8" y1="217.9" x2="254.0" y2="213.7" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
               <line x1="241.9" y1="241.9" x2="231.3" y2="231.3" stroke="white" stroke-width="3" stroke-linecap="round" />
             </g>
 
@@ -278,8 +319,10 @@ class VideoDialRatingPlugin {
           }
           <div id="video-container">
             <div id="video-overlay">
-              <div id="overlay-text">Set the dial to your current baseline level of arousal</div>
-              <div id="countdown-number">${trial.countdown_duration}</div>
+              <div id="overlay-phase">centering</div>
+              <div id="overlay-text">Turn the dial until the arrow points straight up (to 5)</div>
+              <div id="overlay-instruction">Click the dial button when ready</div>
+              <div id="countdown-number" style="display: none;">${trial.countdown_duration}</div>
             </div>
             <video id="jspsych-video-dial-video"
                    ${isFullscreen ? '' : 'width="' + trial.video_width + '" height="' + trial.video_height + '"'}
@@ -296,6 +339,12 @@ class VideoDialRatingPlugin {
 
     html += `</video>
           </div>
+        </div>
+        <div id="centering-target">
+          <svg width="120" height="120" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="80" fill="#000000" stroke="#444444" stroke-width="3"/>
+            <polygon points="100,30 85,55 115,55" fill="#ffffff"/>
+          </svg>
         </div>
       </div>
     `;
@@ -322,7 +371,11 @@ class VideoDialRatingPlugin {
     this.ctx = this.canvas ? this.canvas.getContext("2d") : null;
     this.showTrail = trial.show_trail;
     this.overlay = display_element.querySelector("#video-overlay");
+    this.overlayText = display_element.querySelector("#overlay-text");
+    this.overlayInstruction = display_element.querySelector("#overlay-instruction");
     this.countdownNumber = display_element.querySelector("#countdown-number");
+    this.centeringTarget = display_element.querySelector("#centering-target");
+    console.log("Centering target element:", this.centeringTarget);
 
     // Initialize dial position
     this.updateDialDisplay();
@@ -355,18 +408,112 @@ class VideoDialRatingPlugin {
       }
     });
 
-    // Setup trackpad input (works during countdown too)
-    this.setupTrackpadInput(trial);
+    // Setup wheel input (hijacks scroll wheel for dial control)
+    this.setupWheelInput(trial);
 
-    // Start countdown before video plays
-    this.startCountdown(trial);
+    // Wait for user to center dial and press N before starting countdown
+    this.waitForDialCentering(trial);
+  }
+
+  waitForDialCentering(trial) {
+    console.log("Waiting for dial centering...");
+
+    const confirmCentering = () => {
+      // Remove both listeners
+      document.removeEventListener("keydown", keyHandler);
+      document.removeEventListener("mousedown", clickHandler);
+      this.dialReady = true;
+
+      // Show the dial and hide the centering target
+      const dialContainer = document.getElementById("dial-container");
+      if (dialContainer) {
+        dialContainer.style.visibility = "visible";
+      }
+      if (this.centeringTarget) {
+        this.centeringTarget.style.display = "none";
+      }
+
+      // Transition to baseline phase
+      if (this.overlayText) {
+        this.overlayText.textContent = "Set the dial to your current baseline level of arousal";
+      }
+      if (this.overlayInstruction) {
+        this.overlayInstruction.innerHTML = "Click the dial button when ready to start";
+      }
+      if (this.countdownNumber) {
+        this.countdownNumber.style.display = "block";
+      }
+
+      // Start the countdown after a brief delay to prevent accidental skip
+      setTimeout(() => this.startCountdown(trial), 100);
+    };
+
+    const keyHandler = (e) => {
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        confirmCentering();
+      }
+    };
+
+    const clickHandler = (e) => {
+      // Primary mouse click (button 0) confirms centering
+      if (e.button === 0) {
+        e.preventDefault();
+        confirmCentering();
+      }
+    };
+
+    // Delay attaching handlers to prevent immediate triggering from previous click
+    setTimeout(() => {
+      document.addEventListener("keydown", keyHandler);
+      document.addEventListener("mousedown", clickHandler);
+      this.centeringKeyHandler = keyHandler;
+      this.centeringClickHandler = clickHandler;
+      console.log("Centering handlers attached");
+    }, 300);
   }
 
   startCountdown(trial) {
     console.log("Starting countdown:", trial.countdown_duration, "seconds");
     let secondsLeft = trial.countdown_duration;
+    let countdownInterval = null;
 
-    const countdownInterval = setInterval(() => {
+    const startVideo = () => {
+      // Clear the countdown interval if still running
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+      // Remove click listener
+      document.removeEventListener("click", skipHandler);
+
+      // Record baseline value
+      this.baselineValue = this.currentValue;
+      console.log("Baseline value recorded:", this.baselineValue);
+      // Hide overlay
+      if (this.overlay) {
+        this.overlay.style.display = "none";
+      }
+      // Start video
+      console.log("Video readyState:", this.video.readyState);
+      console.log("Video networkState:", this.video.networkState);
+      console.log("Video error:", this.video.error);
+      this.video.play().catch((e) => {
+        console.log("Video play failed:", e);
+      });
+    };
+
+    // Allow click to skip countdown
+    const skipHandler = (e) => {
+      if (e.button === 0) {
+        e.preventDefault();
+        console.log("Countdown skipped via click");
+        startVideo();
+      }
+    };
+    document.addEventListener("click", skipHandler);
+    this.countdownSkipHandler = skipHandler;
+
+    countdownInterval = setInterval(() => {
       secondsLeft--;
       console.log("Countdown:", secondsLeft);
       if (this.countdownNumber) {
@@ -374,21 +521,7 @@ class VideoDialRatingPlugin {
       }
 
       if (secondsLeft <= 0) {
-        clearInterval(countdownInterval);
-        // Record baseline value
-        this.baselineValue = this.currentValue;
-        console.log("Baseline value recorded:", this.baselineValue);
-        // Hide overlay
-        if (this.overlay) {
-          this.overlay.style.display = "none";
-        }
-        // Start video
-        console.log("Video readyState:", this.video.readyState);
-        console.log("Video networkState:", this.video.networkState);
-        console.log("Video error:", this.video.error);
-        this.video.play().catch((e) => {
-          console.log("Video play failed:", e);
-        });
+        startVideo();
       }
     }, 1000);
   }
@@ -517,35 +650,33 @@ class VideoDialRatingPlugin {
     }
   }
 
-  setupTrackpadInput(trial) {
-    // Track vertical mouse/touch position to control dial
-    // Top of window = 10, bottom = 0
-    // Using middle 40% of screen for full range (doubled sensitivity)
+  setupWheelInput(trial) {
+    // Hijack wheel events for dial control
+    // Each scroll step changes value by scrollStep (default 0.5)
 
-    const calculateValueFromPosition = (clientY) => {
-      const windowHeight = window.innerHeight;
-      const margin = windowHeight * 0.3; // 30% margin top/bottom = 40% usable (2x sensitivity)
-      const usableHeight = windowHeight - margin * 2;
+    // Detect if Mac (has natural/reverse scrolling by default) vs Windows
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0 ||
+                  navigator.userAgent.toUpperCase().indexOf('MAC') >= 0;
+    console.log("OS detection - isMac:", isMac);
 
-      if (clientY <= margin) {
-        return this.dialMax; // Top = 10
-      }
-      if (clientY >= windowHeight - margin) {
-        return this.dialMin; // Bottom = 0
-      }
+    const handleWheel = (e) => {
+      // Prevent all default scrolling
+      e.preventDefault();
+      e.stopPropagation();
 
-      const positionInUsable = clientY - margin;
-      // Invert: top = high value, bottom = low value
-      const normalizedPosition = 1 - positionInUsable / usableHeight;
-
-      const range = this.dialMax - this.dialMin;
-      return this.dialMin + normalizedPosition * range;
-    };
-
-    const handleMove = (e) => {
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      const newValue = calculateValueFromPosition(clientY);
+      // Normalize scroll delta - most mice send deltaY in multiples of ~100
+      // We want each "click" of the scroll wheel to be one step
+      // Mac: positive deltaY = scroll down = decrease value (natural scrolling reversed)
+      // Windows: positive deltaY = scroll down = decrease value (no reversal needed)
+      // For Mac we reverse: positive deltaY should increase value
+      const scrollDirection = isMac ? (e.deltaY > 0 ? 1 : -1) : (e.deltaY > 0 ? -1 : 1);
+      const newValue = this.currentValue + (scrollDirection * this.scrollStep);
       this.updateDialValue(newValue);
+
+      // Record the event if we're recording
+      if (this.isRecording) {
+        this.recordEvent(scrollDirection > 0 ? "scroll_up" : "scroll_down");
+      }
     };
 
     // Skip key handler (R only - for RA use) and debug toggle
@@ -576,19 +707,19 @@ class VideoDialRatingPlugin {
       }
     };
 
-    // Touch events
-    document.addEventListener("touchmove", handleMove, { passive: true });
+    // Add wheel listener with passive: false to allow preventDefault
+    document.addEventListener("wheel", handleWheel, { passive: false });
 
-    // Mouse events
-    document.addEventListener("mousemove", handleMove);
+    // Also prevent scroll on window level
+    window.addEventListener("wheel", handleWheel, { passive: false });
 
     // Keyboard for skip and debug
     document.addEventListener("keydown", keyHandler);
 
     // Store for cleanup
     this.cleanupHandlers = () => {
-      document.removeEventListener("touchmove", handleMove);
-      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("wheel", handleWheel);
       document.removeEventListener("keydown", keyHandler);
     };
   }
@@ -602,8 +733,23 @@ class VideoDialRatingPlugin {
       this.cleanupHandlers();
     }
 
+    // Clean up centering handlers if they weren't already removed
+    if (this.centeringKeyHandler) {
+      document.removeEventListener("keydown", this.centeringKeyHandler);
+    }
+    if (this.centeringClickHandler) {
+      document.removeEventListener("mousedown", this.centeringClickHandler);
+    }
+    if (this.countdownSkipHandler) {
+      document.removeEventListener("click", this.countdownSkipHandler);
+    }
+
     // Restore cursor
     document.body.style.cursor = "auto";
+
+    // Persist the dial value for next trial
+    window.__dialPersistedValue = this.currentValue;
+    console.log("Persisted dial value:", this.currentValue);
 
     // Calculate summary statistics
     const values = this.ratingsHistory.map((r) => r.value);
