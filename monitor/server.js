@@ -3,7 +3,7 @@ const { WebSocketServer } = require('ws');
 const http = require('http');
 const path = require('path');
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 const PASSWORD = process.env.MONITOR_PASSWORD;
 
 if (!PASSWORD) {
