@@ -1,7 +1,7 @@
 /**
  * @title Video Viewing Study
  * @description Video viewing and emotion regulation study
- * @version 3.0.0
+ * @version 3.1.0
  *
  * @assets assets/
  */
@@ -1439,7 +1439,7 @@ export async function run({
       practice_video: {
         type: VideoKeyboardResponsePlugin,
         stimulus: ["assets/naturalpractice.mp4"],
-        choices: ["n", "N"],
+        choices: ["r", "R"],
         width: 1000,
         height: 750,
         autoplay: true,
@@ -1539,7 +1539,7 @@ export async function run({
       practice_video: {
         type: VideoKeyboardResponsePlugin,
         stimulus: ["assets/participatepractice.mp4"],
-        choices: ["n", "N"],
+        choices: ["r", "R"],
         width: 1000,
         height: 750,
         autoplay: true,
@@ -1639,7 +1639,7 @@ export async function run({
       practice_video: {
         type: VideoKeyboardResponsePlugin,
         stimulus: ["assets/observepractice.mp4"],
-        choices: ["n", "N"],
+        choices: ["r", "R"],
         width: 1000,
         height: 750,
         autoplay: true,

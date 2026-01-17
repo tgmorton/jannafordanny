@@ -114,6 +114,7 @@ class VideoDialRatingPlugin {
     this.samplingInterval = null;
     this.videoStarted = false;
     this.isRecording = false;
+    this.baselineValue = this.currentValue; // Initialize baseline to starting value
     this.scrollStep = trial.scroll_step;
     this.dialReady = false; // Whether user has confirmed dial is pointing up
 
