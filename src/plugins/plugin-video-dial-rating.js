@@ -438,7 +438,7 @@ class VideoDialRatingPlugin {
         this.overlayText.textContent = "Set the dial to your current baseline level of arousal";
       }
       if (this.overlayInstruction) {
-        this.overlayInstruction.innerHTML = "Click the dial button when ready to start";
+        this.overlayInstruction.innerHTML = "The video will begin when the countdown reaches 0";
       }
       if (this.countdownNumber) {
         this.countdownNumber.style.display = "block";

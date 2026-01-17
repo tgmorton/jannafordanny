@@ -1,7 +1,7 @@
 /**
  * @title Video Viewing Study
  * @description Video viewing and emotion regulation study
- * @version 2.8.0
+ * @version 3.0.0
  *
  * @assets assets/
  */
@@ -1382,7 +1382,7 @@ export async function run({
             <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
-        choices: "NO_KEYS",
+        choices: ["r", "R"],
         on_load: function () {
           lastAudioCondition = "neutral";
           var audio = document.getElementById("audio-instruction");
@@ -1483,7 +1483,7 @@ export async function run({
             <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
-        choices: "NO_KEYS",
+        choices: ["r", "R"],
         on_load: function () {
           lastAudioCondition = "participatory";
           var audio = document.getElementById("audio-instruction");
@@ -1583,7 +1583,7 @@ export async function run({
             <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
-        choices: "NO_KEYS",
+        choices: ["r", "R"],
         on_load: function () {
           lastAudioCondition = "observatory";
           var audio = document.getElementById("audio-instruction");
@@ -1674,7 +1674,7 @@ export async function run({
           </div>
         </div>
       `,
-      choices: "NO_KEYS",
+      choices: ["r", "R"],
       trial_duration: 45000,
       data: { task: "condition_instructions", condition: "neutral" },
     },
@@ -1696,7 +1696,7 @@ export async function run({
           </div>
         </div>
       `,
-      choices: "NO_KEYS",
+      choices: ["r", "R"],
       trial_duration: 45000,
       data: { task: "condition_instructions", condition: "observatory" },
     },
@@ -1719,7 +1719,7 @@ export async function run({
           </div>
         </div>
       `,
-      choices: "NO_KEYS",
+      choices: ["r", "R"],
       trial_duration: 45000,
       data: { task: "condition_instructions", condition: "participatory" },
     },
