@@ -1,7 +1,7 @@
 /**
- * @title test
- * @description test
- * @version 2.7.0
+ * @title Video Viewing Study
+ * @description Video viewing and emotion regulation study
+ * @version 2.8.0
  *
  * @assets assets/
  */
@@ -1434,7 +1434,6 @@ export async function run({
         stimulus:
           '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
-        trial_duration: 5000,
         data: { task: "practice_intro", condition: "neutral" },
       },
       practice_video: {
@@ -1535,7 +1534,6 @@ export async function run({
         stimulus:
           '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
-        trial_duration: 5000,
         data: { task: "practice_intro", condition: "participatory" },
       },
       practice_video: {
@@ -1636,7 +1634,6 @@ export async function run({
         stimulus:
           '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
-        trial_duration: 5000,
         data: { task: "practice_intro", condition: "observatory" },
       },
       practice_video: {
