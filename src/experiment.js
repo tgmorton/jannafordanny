@@ -1,7 +1,7 @@
 /**
  * @title test
  * @description test
- * @version 2.1.0
+ * @version 2.6.0
  *
  * @assets assets/
  */
@@ -29,27 +29,43 @@ export async function run({
   version,
 }) {
   // === Progress Monitor Setup (opt-in via ?monitor= URL param) ===
-  // In JATOS, URL params are accessed via jatos.urlQueryParameters
-  // Fall back to window.location.search for local testing
-  let monitorUrl = null;
-  if (typeof jatos !== 'undefined' && jatos.urlQueryParameters && jatos.urlQueryParameters.monitor) {
+  let monitorUrl;
+  if (typeof jatos !== "undefined" && jatos.urlQueryParameters) {
+    // Running in JATOS - use jatos.urlQueryParameters
     monitorUrl = jatos.urlQueryParameters.monitor;
+    console.log("JATOS monitor URL from urlQueryParameters:", monitorUrl);
   } else {
-    monitorUrl = new URLSearchParams(window.location.search).get('monitor');
+    // Running standalone - use window.location.search
+    monitorUrl = new URLSearchParams(window.location.search).get("monitor");
+    console.log("Standalone monitor URL from window.location.search:", monitorUrl);
   }
+
+  // Hardcoded fallback to production monitor server
+  if (!monitorUrl) {
+    monitorUrl = "wss://swaglab.ucsd.edu/monitor";
+    console.log("Using hardcoded monitor URL:", monitorUrl);
+  } else {
+    console.log("Attempting to connect to monitor:", monitorUrl);
+  }
+
   let monitorSocket = null;
 
   if (monitorUrl) {
     try {
       monitorSocket = new WebSocket(monitorUrl);
-      monitorSocket.onopen = () => console.log('Monitor connected:', monitorUrl);
+      monitorSocket.onopen = () =>
+        console.log("Monitor connected:", monitorUrl);
       monitorSocket.onerror = () => {
-        console.warn('Monitor connection failed, continuing without monitoring');
+        console.warn(
+          "Monitor connection failed, continuing without monitoring",
+        );
         monitorSocket = null;
       };
-      monitorSocket.onclose = () => { monitorSocket = null; };
+      monitorSocket.onclose = () => {
+        monitorSocket = null;
+      };
     } catch (e) {
-      console.warn('Monitor connection failed:', e.message);
+      console.warn("Monitor connection failed:", e.message);
       monitorSocket = null;
     }
   }
@@ -65,33 +81,34 @@ export async function run({
   window.__experimentMonitor = { sendMonitorUpdate };
 
   const jsPsych = initJsPsych({
-    on_finish: function() {
-      sendMonitorUpdate({ type: 'session_end' });
+    on_finish: function () {
+      sendMonitorUpdate({ type: "session_end" });
       const resultData = jsPsych.data.get().json();
       // Check if JATOS is available
-      if (typeof jatos !== 'undefined') {
+      if (typeof jatos !== "undefined") {
         jatos.endStudy(resultData);
       } else {
         // Fallback: log data to console when not running in JATOS
-        console.log('Experiment complete. Data:', resultData);
+        console.log("Experiment complete. Data:", resultData);
       }
     },
-    on_data_update: function(data) {
+    on_data_update: function (data) {
       // Save data incrementally to JATOS after each trial
-      if (typeof jatos !== 'undefined' && jatos.submitResultData) {
+      if (typeof jatos !== "undefined" && jatos.submitResultData) {
         jatos.submitResultData(data);
       }
-    }
+    },
   });
 
   // Global click handler - uses jsPsych's simulation API
   // This allows the dial button click to work as a universal "proceed" action
-  document.addEventListener("mousedown", function(e) {
-    if (e.button === 0) { // Primary mouse button only
+  document.addEventListener("mousedown", function (e) {
+    if (e.button === 0) {
+      // Primary mouse button only
       console.log("Click detected, simulating 'n' keypress via jsPsych");
       // Use jsPsych's built-in key simulation
-      jsPsych.pluginAPI.keyDown('n');
-      jsPsych.pluginAPI.keyUp('n');
+      jsPsych.pluginAPI.keyDown("n");
+      jsPsych.pluginAPI.keyUp("n");
     }
   });
 
@@ -121,181 +138,280 @@ export async function run({
     return shuffled;
   }
 
-  // Helper to generate rating preamble HTML with thermometer
-  function ratingPreamble(question, instruction, thermometer) {
+  // ============================================================
+  // THERMOMETER RATING COMPONENT
+  // ============================================================
+  //
+  // Coordinate system (all values in pixels):
+  //   SCALE_WIDTH = 480       (distance from 0 to 10)
+  //   SCALE_ORIGIN = 90       (x position where 0 is)
+  //   TRACK_START = 70        (x position where fill begins)
+  //   FILL_BASE = 20          (fill width at value 0)
+  //   PIXELS_PER_UNIT = 48    (pixels per scale unit)
+  //
+  // Position formula for any value V:
+  //   X = SCALE_ORIGIN + V * PIXELS_PER_UNIT = 90 + V * 48
+  //
+  // Fill width formula:
+  //   width = FILL_BASE + V * PIXELS_PER_UNIT = 20 + V * 48
+  //
+  // ============================================================
+
+  var THERM = {
+    SCALE_WIDTH: 480,
+    SCALE_ORIGIN: 90,
+    TRACK_START: 70,
+    FILL_BASE: 20,
+    PIXELS_PER_UNIT: 48,
+  };
+
+  function createThermometerRatingHTML(question, instruction, color) {
+    var fillColor = color === "blue" ? "#3498db" : "#c0392b";
+    var bulbGradient =
+      color === "blue"
+        ? "radial-gradient(circle at 30% 30%, #5dade2, #3498db, #2980b9)"
+        : "radial-gradient(circle at 30% 30%, #e74c3c, #c0392b, #a93226)";
+    var darkColor = color === "blue" ? "#2980b9" : "#a93226";
+
+    // Generate ticks: 21 ticks at positions 0, 24, 48, ... 480
+    var ticksHTML = "";
+    for (var i = 0; i <= 20; i++) {
+      var x = i * 24; // SCALE_WIDTH / 20 = 24
+      var isMajor = i % 2 === 0;
+      var height = isMajor ? 16 : 10;
+      var width = isMajor ? 2 : 1;
+      var bgColor = isMajor ? "#333" : "#999";
+      ticksHTML +=
+        '<div style="position: absolute; left: ' +
+        x +
+        "px; top: 0; width: " +
+        width +
+        "px; height: " +
+        height +
+        "px; background: " +
+        bgColor +
+        '; transform: translateX(-50%);"></div>';
+    }
+
+    // Generate numbers: 11 numbers at positions 0, 48, 96, ... 480
+    var numbersHTML = "";
+    for (var i = 0; i <= 10; i++) {
+      var x = i * 48; // PIXELS_PER_UNIT = 48
+      numbersHTML +=
+        '<span style="position: absolute; left: ' +
+        x +
+        'px; transform: translateX(-50%); font-size: 15px; font-weight: 600; color: #444;">' +
+        i +
+        "</span>";
+    }
+
+    // Initial fill width for value 5: 20 + 5*48 = 260px
+    var initialFillWidth = THERM.FILL_BASE + 5 * THERM.PIXELS_PER_UNIT;
+
     return `
-      <div style="display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: 20px; box-sizing: border-box;">
-        <div style="display: flex; align-items: center; justify-content: space-between; max-width: 900px; width: 100%; gap: 60px;">
-          <div style="flex: 1; text-align: left;">
-            <p style="font-size: 28px; font-weight: bold; line-height: 1.4; margin-bottom: 30px; color: #222;">
-              ${question}
-            </p>
-            <p style="font-size: 18px; line-height: 1.6; margin-bottom: 30px; color: #222;">
-              ${instruction}
-            </p>
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+        <div style="text-align: center; max-width: 800px; margin-bottom: 40px;">
+          <p style="font-size: 26px; font-weight: bold; line-height: 1.4; margin-bottom: 20px; color: #222;">
+            ${question}
+          </p>
+          <p style="font-size: 18px; line-height: 1.6; color: #555;">
+            ${instruction}
+          </p>
+        </div>
+
+        <!-- Thermometer: 600px wide container -->
+        <div style="position: relative; width: 600px; height: 130px;">
+
+          <!-- Bulb: 80px circle at x=0, displays current value -->
+          <div style="position: absolute; left: 0; top: 10px; width: 80px; height: 80px; border-radius: 50%; background: ${bulbGradient}; border: 4px solid ${fillColor}; z-index: 10; box-shadow: inset 0 -5px 15px rgba(0,0,0,0.2);">
+            <span id="thermometer-value" style="position: absolute; top: 80%; left: 50%; transform: translate(-50%, -50%); font-size: 32px; font-weight: bold; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.5);">5</span>
           </div>
-          <div style="flex-shrink: 0;">
-            <img src="${thermometer}" style="height: 450px; width: auto;" alt="Rating scale 0-10">
+
+          <!-- Track: gray bar from x=70 to x=580 (510px wide) -->
+          <div style="position: absolute; left: 70px; top: 28px; width: 510px; height: 44px; background: linear-gradient(to bottom, #f8f8f8, #e8e8e8); border-radius: 0 22px 22px 0; border: 3px solid #ccc; box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);"></div>
+
+          <!-- Fill: colored bar from x=70, width calculated by formula -->
+          <div id="thermometer-fill" style="position: absolute; left: 70px; top: 28px; width: ${initialFillWidth}px; height: 44px; background: linear-gradient(to bottom, ${fillColor}, ${darkColor}); border-radius: 0 22px 22px 0; border: 3px solid ${fillColor}; border-left: none; transition: width 0.1s ease-out; box-sizing: border-box;"></div>
+
+          <!-- Scale: ticks and numbers container at x=90 (where 0 is), width=480 -->
+          <div style="position: absolute; left: 90px; top: 52px; width: 480px; height: 50px;">
+            <!-- Ticks -->
+            <div style="position: absolute; left: 0; right: 0; top: 0; height: 20px;">
+              ${ticksHTML}
+            </div>
+            <!-- Numbers -->
+            <div style="position: absolute; left: 0; right: 0; top: 22px; height: 20px;">
+              ${numbersHTML}
+            </div>
           </div>
         </div>
+
+        <p style="font-size: 16px; color: #888; margin-top: 20px;">
+          Turn the dial to adjust your rating, then <strong>click the dial button</strong> to submit.
+        </p>
       </div>
     `;
   }
 
-  // Helper function to add 0-10 validation to survey-text trials with Numpad Enter support
-  function addRatingValidation() {
-    var form = document.getElementById("jspsych-survey-text-form");
-    var input = form.querySelector('input[type="text"]');
-    var submitButton = document.getElementById("jspsych-survey-text-next");
+  // Setup dial interaction for thermometer rating
+  function setupThermometerDial() {
+    var currentValue = 5;
+    var fill = document.getElementById("thermometer-fill");
+    var valueDisplay = document.getElementById("thermometer-value");
 
-    // Hide the submit button - we'll use Enter key instead
-    submitButton.style.display = "none";
-
-    // Add instruction for Enter key
-    var enterInstruction = document.createElement("p");
-    enterInstruction.style.cssText = "font-size: 16px; color: #666; margin-top: 20px; text-align: center;";
-    enterInstruction.textContent = "Press Enter on the numpad to continue.";
-    submitButton.parentNode.appendChild(enterInstruction);
-
-    // Add error message container (hidden initially)
-    var errorDiv = document.createElement("div");
-    errorDiv.id = "rating-error";
-    errorDiv.style.cssText =
-      "color: #c0392b; font-size: 16px; margin-top: 10px; display: none; text-align: center;";
-    errorDiv.textContent = "Please enter a number between 0 and 10.";
-    submitButton.parentNode.appendChild(errorDiv);
-
-    // Function to validate and submit
-    function validateAndSubmit() {
-      var value = parseInt(input.value);
-      if (isNaN(value) || value < 0 || value > 10) {
-        errorDiv.style.display = "block";
-        input.focus();
-        return false;
-      }
-      // Valid - hide error and click submit
-      errorDiv.style.display = "none";
-      submitButton.click();
-      return true;
+    if (!fill || !valueDisplay) {
+      console.error("Thermometer elements not found!");
+      return;
     }
 
-    // Add Enter key listener (both regular and numpad Enter)
-    input.addEventListener("keydown", function(e) {
-      // Enter key (code 13) or NumpadEnter
-      if (e.key === "Enter" || e.code === "NumpadEnter") {
-        e.preventDefault();
-        validateAndSubmit();
-      }
-    });
+    // Update fill width using the formula: width = FILL_BASE + value * PIXELS_PER_UNIT
+    function updateThermometer(value) {
+      currentValue = Math.max(0, Math.min(10, value));
+      currentValue = Math.round(currentValue * 2) / 2; // Round to nearest 0.5
 
-    // Also allow clicking the button if someone finds it
-    submitButton.addEventListener("click", function (e) {
-      var value = parseInt(input.value);
-      if (isNaN(value) || value < 0 || value > 10) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        errorDiv.style.display = "block";
-        input.focus();
-        return false;
-      }
-      errorDiv.style.display = "none";
-    });
+      var fillWidth = THERM.FILL_BASE + currentValue * THERM.PIXELS_PER_UNIT;
+      fill.style.width = fillWidth + "px";
+      valueDisplay.textContent = currentValue;
+      window.__thermometerValue = currentValue;
+    }
+
+    // Detect Mac for scroll direction
+    var isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+
+    // Handle wheel input
+    var handleWheel = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var scrollDirection = isMac
+        ? e.deltaY > 0
+          ? 1
+          : -1
+        : e.deltaY > 0
+          ? -1
+          : 1;
+      updateThermometer(currentValue + scrollDirection * 0.5);
+    };
+
+    document.addEventListener("wheel", handleWheel, { passive: false });
+    window.addEventListener("wheel", handleWheel, { passive: false });
+
+    // Store cleanup function
+    window._thermometerCleanup = function () {
+      document.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("wheel", handleWheel);
+    };
+
+    // Initialize
+    window.__thermometerValue = 5;
+    updateThermometer(5);
   }
 
-  // Individual rating trials using SurveyTextPlugin with 1-10 validation
+  // Individual rating trials using horizontal thermometer with dial control
   var rating_arousal = {
-    type: SurveyTextPlugin,
-    preamble: ratingPreamble(
-      'During the video, how much <span style="color: #c0392b; font-weight: bold;">sexual arousal</span> (i.e., horny/turned on) did you feel?',
-      'Rate your average level of <span style="color: #c0392b; font-weight: bold;">sexual arousal</span> during the video on a scale from 0 to 10 (10 being the highest).',
-      "assets/thermometer-red.png",
-    ),
-    questions: [
-      {
-        prompt: "Enter a number from 0 to 10:",
-        name: "rating",
-        required: true,
-        columns: 5,
-      },
-    ],
-    button_label: "Continue",
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: function () {
+      return createThermometerRatingHTML(
+        'During the video, how much <span style="color: #c0392b; font-weight: bold;">sexual arousal</span> (i.e., horny/turned on) did you feel?',
+        'Use the dial to rate your average level of <span style="color: #c0392b; font-weight: bold;">sexual arousal</span> during the video on a scale from 0 to 10 (10 being the highest).',
+        "red",
+      );
+    },
+    choices: ["n", "N"],
     data: { task: "rating", rating_type: "arousal" },
-    on_load: addRatingValidation,
+    on_load: setupThermometerDial,
     on_finish: function (data) {
-      data.rating = parseInt(data.response.rating);
-      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'arousal', value: data.rating, rt: data.rt });
+      data.rating = window.__thermometerValue || 5;
+      if (window._thermometerCleanup) {
+        window._thermometerCleanup();
+        delete window._thermometerCleanup;
+      }
+      sendMonitorUpdate({
+        type: "rating_submitted",
+        rating_type: "arousal",
+        value: data.rating,
+        rt: data.rt,
+      });
     },
   };
 
   var rating_pleasure = {
-    type: SurveyTextPlugin,
-    preamble: ratingPreamble(
-      'During the video, how much <span style="color: #c0392b; font-weight: bold;">sexual pleasure</span> did you feel?',
-      'Rate your average level of <span style="color: #c0392b; font-weight: bold;">sexual pleasure</span> during the video on a scale from 0 to 10 (10 being the highest).',
-      "assets/thermometer-red.png",
-    ),
-    questions: [
-      {
-        prompt: "Enter a number from 0 to 10:",
-        name: "rating",
-        required: true,
-        columns: 5,
-      },
-    ],
-    button_label: "Continue",
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: function () {
+      return createThermometerRatingHTML(
+        'During the video, how much <span style="color: #c0392b; font-weight: bold;">sexual pleasure</span> did you feel?',
+        'Use the dial to rate your average level of <span style="color: #c0392b; font-weight: bold;">sexual pleasure</span> during the video on a scale from 0 to 10 (10 being the highest).',
+        "red",
+      );
+    },
+    choices: ["n", "N"],
     data: { task: "rating", rating_type: "pleasure" },
-    on_load: addRatingValidation,
+    on_load: setupThermometerDial,
     on_finish: function (data) {
-      data.rating = parseInt(data.response.rating);
-      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'pleasure', value: data.rating, rt: data.rt });
+      data.rating = window.__thermometerValue || 5;
+      if (window._thermometerCleanup) {
+        window._thermometerCleanup();
+        delete window._thermometerCleanup;
+      }
+      sendMonitorUpdate({
+        type: "rating_submitted",
+        rating_type: "pleasure",
+        value: data.rating,
+        rt: data.rt,
+      });
     },
   };
 
   var rating_distraction = {
-    type: SurveyTextPlugin,
-    preamble: ratingPreamble(
-      'During the video, how much <span style="color: #3498db; font-weight: bold;">distraction</span> did you experience?',
-      'Rate your average <span style="color: #3498db; font-weight: bold;">distraction</span> level during the video on a scale from 0 to 10 (10 being the highest).',
-      "assets/thermometer-blue.png",
-    ),
-    questions: [
-      {
-        prompt: "Enter a number from 0 to 10:",
-        name: "rating",
-        required: true,
-        columns: 5,
-      },
-    ],
-    button_label: "Continue",
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: function () {
+      return createThermometerRatingHTML(
+        'During the video, how much <span style="color: #3498db; font-weight: bold;">distraction</span> did you experience?',
+        'Use the dial to rate your average <span style="color: #3498db; font-weight: bold;">distraction</span> level during the video on a scale from 0 to 10 (10 being the highest).',
+        "blue",
+      );
+    },
+    choices: ["n", "N"],
     data: { task: "rating", rating_type: "distraction" },
-    on_load: addRatingValidation,
+    on_load: setupThermometerDial,
     on_finish: function (data) {
-      data.rating = parseInt(data.response.rating);
-      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'distraction', value: data.rating, rt: data.rt });
+      data.rating = window.__thermometerValue || 5;
+      if (window._thermometerCleanup) {
+        window._thermometerCleanup();
+        delete window._thermometerCleanup;
+      }
+      sendMonitorUpdate({
+        type: "rating_submitted",
+        rating_type: "distraction",
+        value: data.rating,
+        rt: data.rt,
+      });
     },
   };
 
   var rating_immersion = {
-    type: SurveyTextPlugin,
-    preamble: ratingPreamble(
-      'During the video, how <span style="color: #c0392b; font-weight: bold;">immersed</span> were you in the present moment?',
-      'Rate your average <span style="color: #c0392b; font-weight: bold;">immersion</span> level during the video on a scale from 0 to 10 (10 being the highest).',
-      "assets/thermometer-red.png",
-    ),
-    questions: [
-      {
-        prompt: "Enter a number from 0 to 10:",
-        name: "rating",
-        required: true,
-        columns: 5,
-      },
-    ],
-    button_label: "Continue",
+    type: HtmlKeyboardResponsePlugin,
+    stimulus: function () {
+      return createThermometerRatingHTML(
+        'During the video, how <span style="color: #c0392b; font-weight: bold;">immersed</span> were you in the present moment?',
+        'Use the dial to rate your average <span style="color: #c0392b; font-weight: bold;">immersion</span> level during the video on a scale from 0 to 10 (10 being the highest).',
+        "red",
+      );
+    },
+    choices: ["n", "N"],
     data: { task: "rating", rating_type: "immersion" },
-    on_load: addRatingValidation,
+    on_load: setupThermometerDial,
     on_finish: function (data) {
-      data.rating = parseInt(data.response.rating);
-      sendMonitorUpdate({ type: 'rating_submitted', rating_type: 'immersion', value: data.rating, rt: data.rt });
+      data.rating = window.__thermometerValue || 5;
+      if (window._thermometerCleanup) {
+        window._thermometerCleanup();
+        delete window._thermometerCleanup;
+      }
+      sendMonitorUpdate({
+        type: "rating_submitted",
+        rating_type: "immersion",
+        value: data.rating,
+        rt: data.rt,
+      });
     },
   };
 
@@ -419,7 +535,7 @@ export async function run({
       });
       // Send session start to monitor
       sendMonitorUpdate({
-        type: 'session_start',
+        type: "session_start",
         participant_id: entered_pid,
       });
     },
@@ -488,12 +604,21 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "nature_instructions" },
-    on_start: function() {
-      sendMonitorUpdate({ type: 'trial_update', task: 'nature_instructions', instruction: 'Nature Instructions' });
+    on_start: function () {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "nature_instructions",
+        instruction: "Nature Instructions",
+      });
     },
-    on_finish: function(data) {
-      sendMonitorUpdate({ type: 'instruction_complete', task: 'nature_instructions', instruction: 'Nature Instructions', rt: data.rt });
-    }
+    on_finish: function (data) {
+      sendMonitorUpdate({
+        type: "instruction_complete",
+        task: "nature_instructions",
+        instruction: "Nature Instructions",
+        rt: data.rt,
+      });
+    },
   };
 
   // Nature video - auto advances when done, can skip with 'n'
@@ -602,12 +727,21 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "dial_calibration" },
-    on_start: function() {
-      sendMonitorUpdate({ type: 'trial_update', task: 'dial_calibration', instruction: 'Dial Calibration' });
+    on_start: function () {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "dial_calibration",
+        instruction: "Dial Calibration",
+      });
     },
-    on_finish: function(data) {
-      sendMonitorUpdate({ type: 'instruction_complete', task: 'dial_calibration', instruction: 'Dial Calibration', rt: data.rt });
-    }
+    on_finish: function (data) {
+      sendMonitorUpdate({
+        type: "instruction_complete",
+        task: "dial_calibration",
+        instruction: "Dial Calibration",
+        rt: data.rt,
+      });
+    },
   };
 
   var dial_instructions = {
@@ -662,7 +796,7 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "dial_instructions" },
-    on_load: function() {
+    on_load: function () {
       // Make the dial interactive with wheel input
       var dialPointer = document.getElementById("instruction-dial-pointer");
       var dialValueDisplay = document.getElementById("dial-value-display");
@@ -674,24 +808,25 @@ export async function run({
 
       function valueToAngle(value) {
         var normalized = value / 10;
-        return angleStart - (normalized * angleRange);
+        return angleStart - normalized * angleRange;
       }
 
       function updateDial(value) {
         currentValue = Math.max(0, Math.min(10, value));
         var angle = valueToAngle(currentValue);
         var rotation = angle - 90;
-        dialPointer.style.transform = "rotate(" + (-rotation) + "deg)";
-        dialValueDisplay.textContent = "Current Value: " + Math.round(currentValue * 10) / 10;
+        dialPointer.style.transform = "rotate(" + -rotation + "deg)";
+        dialValueDisplay.textContent =
+          "Current Value: " + Math.round(currentValue * 10) / 10;
       }
 
       // Handle wheel input for dial control
-      var handleWheel = function(e) {
+      var handleWheel = function (e) {
         e.preventDefault();
         e.stopPropagation();
         // Counter-clockwise on physical dial (positive deltaY) = clockwise on screen = increase value
         var scrollDirection = e.deltaY > 0 ? 1 : -1;
-        var newValue = currentValue + (scrollDirection * scrollStep);
+        var newValue = currentValue + scrollDirection * scrollStep;
         updateDial(newValue);
       };
 
@@ -699,7 +834,7 @@ export async function run({
       window.addEventListener("wheel", handleWheel, { passive: false });
 
       // Persist dial value when proceeding (click is handled globally)
-      var clickHandler = function(e) {
+      var clickHandler = function (e) {
         if (e.button === 0) {
           window.__dialPersistedValue = currentValue;
           console.log("Calibration complete, persisted value:", currentValue);
@@ -708,27 +843,39 @@ export async function run({
       document.addEventListener("click", clickHandler);
 
       // Store cleanup function
-      window._dialInstructionsCleanup = function() {
+      window._dialInstructionsCleanup = function () {
         document.removeEventListener("wheel", handleWheel);
         window.removeEventListener("wheel", handleWheel);
         document.removeEventListener("click", clickHandler);
       };
 
       // Initialize dial position - use persisted value if available
-      var startValue = window.__dialPersistedValue !== undefined ? window.__dialPersistedValue : 5;
+      var startValue =
+        window.__dialPersistedValue !== undefined
+          ? window.__dialPersistedValue
+          : 5;
       updateDial(startValue);
     },
-    on_start: function() {
-      sendMonitorUpdate({ type: 'trial_update', task: 'dial_instructions', instruction: 'Dial Instructions' });
+    on_start: function () {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "dial_instructions",
+        instruction: "Dial Instructions",
+      });
     },
-    on_finish: function(data) {
+    on_finish: function (data) {
       // Clean up wheel listeners
       if (window._dialInstructionsCleanup) {
         window._dialInstructionsCleanup();
         delete window._dialInstructionsCleanup;
       }
-      sendMonitorUpdate({ type: 'instruction_complete', task: 'dial_instructions', instruction: 'Dial Instructions', rt: data.rt });
-    }
+      sendMonitorUpdate({
+        type: "instruction_complete",
+        task: "dial_instructions",
+        instruction: "Dial Instructions",
+        rt: data.rt,
+      });
+    },
   };
 
   // Fullscreen trial
@@ -776,12 +923,21 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "study_overview" },
-    on_start: function() {
-      sendMonitorUpdate({ type: 'trial_update', task: 'study_overview', instruction: 'Study Overview' });
+    on_start: function () {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "study_overview",
+        instruction: "Study Overview",
+      });
     },
-    on_finish: function(data) {
-      sendMonitorUpdate({ type: 'instruction_complete', task: 'study_overview', instruction: 'Study Overview', rt: data.rt });
-    }
+    on_finish: function (data) {
+      sendMonitorUpdate({
+        type: "instruction_complete",
+        task: "study_overview",
+        instruction: "Study Overview",
+        rt: data.rt,
+      });
+    },
   };
 
   // Nature video with dial rating (replaces simple video playback)
@@ -798,16 +954,16 @@ export async function run({
       task: "nature_video_dial",
       filename: "nature.mp4",
     },
-    on_start: function() {
-      sendMonitorUpdate({ type: 'trial_update', task: 'nature_video_dial' });
-    }
+    on_start: function () {
+      sendMonitorUpdate({ type: "trial_update", task: "nature_video_dial" });
+    },
   };
 
   // Audio test slide - plays a short audio to test headphones
   var audio_test = {
-    type: HtmlKeyboardResponsePlugin,
+    type: HtmlButtonResponsePlugin,
     stimulus: `
-      <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: 40px;">
         <div style="text-align: center; max-width: 700px;">
           <h1 style="font-size: 32px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Audio Test</h1>
           <audio id="test-audio" controls style="margin-bottom: 30px;">
@@ -819,30 +975,36 @@ export async function run({
               Adjust the volume to a comfortable level.
             </p>
           </div>
-          <p style="font-size: 18px; color: #555; margin-bottom: 20px;">
-            If you can hear the audio clearly, <strong>click the dial button</strong> to continue to the dial test.
-          </p>
           <p style="font-size: 16px; color: #999; font-style: italic;">
             (RA: If there are audio issues, please assist the participant before continuing)
           </p>
         </div>
       </div>
     `,
-    choices: ["n", "N"],
+    choices: ["Continue"],
     data: { task: "audio_test" },
-    on_start: function() {
-      sendMonitorUpdate({ type: 'trial_update', task: 'audio_test', instruction: 'Audio Test' });
+    on_start: function () {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "audio_test",
+        instruction: "Audio Test",
+      });
     },
-    on_load: function() {
-      // Stop audio when trial ends
+    on_load: function () {
+      // Set moderate default volume
       var audio = document.getElementById("test-audio");
       if (audio) {
-        audio.volume = 0.5; // Set moderate default volume
+        audio.volume = 0.5;
       }
     },
-    on_finish: function(data) {
-      sendMonitorUpdate({ type: 'instruction_complete', task: 'audio_test', instruction: 'Audio Test', rt: data.rt });
-    }
+    on_finish: function (data) {
+      sendMonitorUpdate({
+        type: "instruction_complete",
+        task: "audio_test",
+        instruction: "Audio Test",
+        rt: data.rt,
+      });
+    },
   };
 
   // Dial test slide - allows participant to try the dial before starting
@@ -937,10 +1099,14 @@ export async function run({
     `,
     choices: ["n", "N"],
     data: { task: "dial_test" },
-    on_start: function() {
-      sendMonitorUpdate({ type: 'trial_update', task: 'dial_test', instruction: 'Dial Test' });
+    on_start: function () {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "dial_test",
+        instruction: "Dial Test",
+      });
     },
-    on_load: function() {
+    on_load: function () {
       // Make the dial interactive with wheel input
       var dialPointer = document.getElementById("test-dial-pointer");
       var dialValueDisplay = document.getElementById("test-dial-value");
@@ -952,24 +1118,25 @@ export async function run({
 
       function valueToAngle(value) {
         var normalized = value / 10;
-        return angleStart - (normalized * angleRange);
+        return angleStart - normalized * angleRange;
       }
 
       function updateDial(value) {
         currentValue = Math.max(0, Math.min(10, value));
         var angle = valueToAngle(currentValue);
         var rotation = angle - 90;
-        dialPointer.style.transform = "rotate(" + (-rotation) + "deg)";
-        dialValueDisplay.textContent = "Current Value: " + Math.round(currentValue * 10) / 10;
+        dialPointer.style.transform = "rotate(" + -rotation + "deg)";
+        dialValueDisplay.textContent =
+          "Current Value: " + Math.round(currentValue * 10) / 10;
       }
 
       // Handle wheel input for dial control
-      var handleWheel = function(e) {
+      var handleWheel = function (e) {
         e.preventDefault();
         e.stopPropagation();
         // Counter-clockwise on physical dial (positive deltaY) = clockwise on screen = increase value
         var scrollDirection = e.deltaY > 0 ? 1 : -1;
-        var newValue = currentValue + (scrollDirection * scrollStep);
+        var newValue = currentValue + scrollDirection * scrollStep;
         updateDial(newValue);
       };
 
@@ -977,7 +1144,7 @@ export async function run({
       window.addEventListener("wheel", handleWheel, { passive: false });
 
       // Persist dial value when proceeding (click is handled globally)
-      var clickHandler = function(e) {
+      var clickHandler = function (e) {
         if (e.button === 0) {
           window.__dialPersistedValue = currentValue;
           console.log("Dial test complete, persisted value:", currentValue);
@@ -986,24 +1153,32 @@ export async function run({
       document.addEventListener("click", clickHandler);
 
       // Store cleanup function
-      window._dialTestCleanup = function() {
+      window._dialTestCleanup = function () {
         document.removeEventListener("wheel", handleWheel);
         window.removeEventListener("wheel", handleWheel);
         document.removeEventListener("click", clickHandler);
       };
 
       // Initialize dial position - use persisted value if available
-      var startValue = window.__dialPersistedValue !== undefined ? window.__dialPersistedValue : 5;
+      var startValue =
+        window.__dialPersistedValue !== undefined
+          ? window.__dialPersistedValue
+          : 5;
       updateDial(startValue);
     },
-    on_finish: function(data) {
+    on_finish: function (data) {
       // Clean up wheel listeners
       if (window._dialTestCleanup) {
         window._dialTestCleanup();
         delete window._dialTestCleanup;
       }
-      sendMonitorUpdate({ type: 'instruction_complete', task: 'dial_test', instruction: 'Dial Test', rt: data.rt });
-    }
+      sendMonitorUpdate({
+        type: "instruction_complete",
+        task: "dial_test",
+        instruction: "Dial Test",
+        rt: data.rt,
+      });
+    },
   };
 
   // Build timeline - removed fullscreen entry, now starts with preload and equipment tests
@@ -1044,155 +1219,108 @@ export async function run({
   // Add rating questions after nature video
   timeline.push(rating_procedure);
 
-  // SRT parsing and karaoke-style subtitle display helper functions
-  function parseSRT(srtText) {
-    var subtitles = [];
-    var blocks = srtText.trim().split(/\n\n+/);
-    for (var i = 0; i < blocks.length; i++) {
-      var lines = blocks[i].split("\n");
-      if (lines.length >= 3) {
-        var timeMatch = lines[1].match(
-          /(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/,
-        );
-        if (timeMatch) {
-          var startMs =
-            parseInt(timeMatch[1]) * 3600000 +
-            parseInt(timeMatch[2]) * 60000 +
-            parseInt(timeMatch[3]) * 1000 +
-            parseInt(timeMatch[4]);
-          var endMs =
-            parseInt(timeMatch[5]) * 3600000 +
-            parseInt(timeMatch[6]) * 60000 +
-            parseInt(timeMatch[7]) * 1000 +
-            parseInt(timeMatch[8]);
-          var text = lines.slice(2).join(" ");
-          subtitles.push({ start: startMs, end: endMs, text: text });
-        }
-      }
+  // Script-style subtitle display - shows all paragraphs with underline on current spoken segment
+  function setupScriptSubtitles(audioElement, scriptData, containerElement) {
+    var currentParagraphIdx = null;
+
+    // Load Inter font for nice typography
+    if (!document.getElementById("inter-font-link")) {
+      var link = document.createElement("link");
+      link.id = "inter-font-link";
+      link.rel = "stylesheet";
+      link.href =
+        "https://fonts.googleapis.com/css2?family=Inter:wght@400..600&display=swap";
+      document.head.appendChild(link);
     }
-    return subtitles;
-  }
 
-  // Apple Music-style karaoke lyrics - each line separate, smooth scrolling, current line highlighted
-  function setupKaraokeSubtitles(audioElement, subtitles, subtitleElement) {
-    var currentIndex = -1;
+    // Build the HTML for all paragraphs with spans for each segment
+    function initializeScript() {
+      var html =
+        '<div class="script-container" style="' +
+        "max-width: 70ch;" +
+        "margin: 0 auto;" +
+        "text-align: left;" +
+        '">';
 
-    // Create the lyrics container with all lines (using Inter variable font for smooth weight transitions)
-    function initializeLyrics() {
-      // Load Inter variable font
-      if (!document.getElementById('inter-font-link')) {
-        var link = document.createElement('link');
-        link.id = 'inter-font-link';
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap';
-        document.head.appendChild(link);
-      }
-
-      var html = '<div class="lyrics-container" style="position: relative; width: 80ch; max-width: 100%;">';
-      for (var i = 0; i < subtitles.length; i++) {
-        html += '<div class="lyric-line" data-index="' + i + '" style="' +
-          'padding: 16px 24px;' +
-          'margin: 14px 0;' +
-          'border-radius: 8px;' +
-          'transition: background-color 0.4s ease, font-weight 0.4s ease;' +
-          'color: #333;' +
+      scriptData.paragraphs.forEach(function (paragraph, pIdx) {
+        html +=
+          '<p id="para-' +
+          pIdx +
+          '" class="script-paragraph" style="' +
           "font-family: 'Inter', Helvetica, Arial, sans-serif;" +
-          'font-size: 26px;' +
-          'font-weight: 400;' +
-          'line-height: 1.6;' +
-          '">' + subtitles[i].text + '</div>';
-      }
-      html += '</div>';
-      subtitleElement.innerHTML = html;
-    }
+          "font-size: 20px;" +
+          "line-height: 1.8;" +
+          "color: #333;" +
+          "margin-bottom: 24px;" +
+          '">';
 
-    function updateHighlight(newIndex) {
-      var lines = subtitleElement.querySelectorAll('.lyric-line');
+        paragraph.segments.forEach(function (segment, sIdx) {
+          var segmentId = "seg-" + pIdx + "-" + sIdx;
+          html +=
+            '<span id="' +
+            segmentId +
+            '" ' +
+            'data-para="' +
+            pIdx +
+            '" ' +
+            'data-start="' +
+            segment.start +
+            '" ' +
+            'data-end="' +
+            segment.end +
+            '" ' +
+            'style="transition: all 0.15s ease;">' +
+            segment.text +
+            " " +
+            "</span>";
+        });
 
-      lines.forEach(function(line, i) {
-        if (i === newIndex) {
-          // Current line - highlighted with smooth bold transition
-          line.style.backgroundColor = 'rgba(255, 235, 59, 0.25)';
-          line.style.fontWeight = '650';
-        } else {
-          // All other lines - no highlight
-          line.style.backgroundColor = 'transparent';
-          line.style.fontWeight = '400';
-        }
+        html += "</p>";
       });
 
-      // Smooth scroll to keep current line visible (centered in view)
-      // Delay scroll slightly so highlight changes first, then view follows
-      if (newIndex >= 0 && lines[newIndex]) {
-        var line = lines[newIndex];
-        setTimeout(function() {
-          var containerRect = subtitleElement.getBoundingClientRect();
-          var scrollTarget = line.offsetTop - (containerRect.height / 2) + (line.offsetHeight / 2);
-
-          // Custom smooth scroll with slower duration
-          var startPos = subtitleElement.scrollTop;
-          var distance = scrollTarget - startPos;
-          var duration = 600; // ms
-          var startTime = null;
-
-          function easeOutCubic(t) {
-            return 1 - Math.pow(1 - t, 3);
-          }
-
-          function animateScroll(currentTime) {
-            if (!startTime) startTime = currentTime;
-            var elapsed = currentTime - startTime;
-            var progress = Math.min(elapsed / duration, 1);
-            var easedProgress = easeOutCubic(progress);
-
-            subtitleElement.scrollTop = startPos + (distance * easedProgress);
-
-            if (progress < 1) {
-              requestAnimationFrame(animateScroll);
-            }
-          }
-
-          requestAnimationFrame(animateScroll);
-        }, 200); // 200ms delay before scrolling starts
-      }
+      html += "</div>";
+      containerElement.innerHTML = html;
     }
 
-    audioElement.addEventListener("timeupdate", function () {
-      var currentTime = audioElement.currentTime * 1000;
+    // Update underline based on current audio time
+    function updateUnderline(currentTime) {
+      var allSegments = containerElement.querySelectorAll("span[data-start]");
 
-      // Find which subtitle is currently being spoken
-      var newIndex = -1;
-      for (var i = 0; i < subtitles.length; i++) {
-        if (currentTime >= subtitles[i].start && currentTime <= subtitles[i].end) {
-          newIndex = i;
-          break;
-        }
-      }
+      allSegments.forEach(function (span) {
+        var start = parseInt(span.getAttribute("data-start"));
+        var end = parseInt(span.getAttribute("data-end"));
 
-      // If between subtitles, find the most recent one
-      if (newIndex === -1) {
-        for (var j = subtitles.length - 1; j >= 0; j--) {
-          if (currentTime > subtitles[j].end) {
-            newIndex = j;
-            break;
+        if (currentTime >= start && currentTime <= end) {
+          // Currently being spoken - underline it
+          span.style.textDecoration = "underline";
+          span.style.textDecorationColor = "#3498db";
+          span.style.textDecorationThickness = "3px";
+          span.style.textUnderlineOffset = "4px";
+
+          // Scroll to paragraph only when paragraph changes (not on every segment)
+          var paraIdx = span.getAttribute("data-para");
+          if (currentParagraphIdx !== paraIdx) {
+            currentParagraphIdx = paraIdx;
+            var paragraph = document.getElementById("para-" + paraIdx);
+            if (paragraph) {
+              paragraph.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
           }
+        } else {
+          // Not currently being spoken - no underline
+          span.style.textDecoration = "none";
         }
-      }
+      });
+    }
 
-      // Only update if index changed
-      if (newIndex !== currentIndex) {
-        currentIndex = newIndex;
-        updateHighlight(currentIndex);
-      }
+    // Listen for audio time updates
+    audioElement.addEventListener("timeupdate", function () {
+      var currentTime = audioElement.currentTime * 1000; // Convert to ms
+      updateUnderline(currentTime);
     });
 
-    // Initialize lyrics display
-    initializeLyrics();
-  }
-
-  // Legacy function for backwards compatibility
-  function setupSubtitles(audioElement, subtitles, subtitleElement) {
-    setupKaraokeSubtitles(audioElement, subtitles, subtitleElement);
+    // Initialize the script display
+    initializeScript();
   }
 
   // Block practice components for each condition
@@ -1201,7 +1329,7 @@ export async function run({
     var names = {
       neutral: "Natural",
       participatory: "Participating",
-      observatory: "Observing"
+      observatory: "Observing",
     };
     return names[condition] || condition;
   }
@@ -1210,13 +1338,13 @@ export async function run({
   var audioFiles = {
     neutral: "assets/natural.mp3",
     participatory: "assets/participate.mp3",
-    observatory: "assets/observe.mp3"
+    observatory: "assets/observe.mp3",
   };
 
-  var srtFiles = {
-    neutral: "assets/natural.mp3.srt",
-    participatory: "assets/participate.mp3.srt",
-    observatory: "assets/observe.mp3.srt"
+  var scriptFiles = {
+    neutral: "assets/scripts/natural-script.json",
+    participatory: "assets/scripts/participate-script.json",
+    observatory: "assets/scripts/observe-script.json",
   };
 
   // Variable to store last played audio info for repeat
@@ -1248,23 +1376,22 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus: `
           <audio id="audio-instruction" autoplay><source src="assets/natural.mp3" type="audio/mpeg"></audio>
-          <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
-            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Natural Instructions Now Playing</h2>
-            <style>.subtitle-scroll::-webkit-scrollbar{display:none}.subtitle-scroll{-ms-overflow-style:none;scrollbar-width:none}</style><div id="subtitle-display" class="subtitle-scroll" style="text-align: center; width: 85ch; max-width: 95vw; height: 550px; overflow-y: auto; overflow-x: hidden; padding: 40px; background: #f9f9f9; border-radius: 12px; position: relative; scroll-behavior: smooth;"></div>
+          <div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; flex-direction: column;">
+            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Natural Instructions</h2>
+            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
         choices: ["n", "N"],
         on_load: function () {
           lastAudioCondition = "neutral";
           var audio = document.getElementById("audio-instruction");
-          var subtitleEl = document.getElementById("subtitle-display");
-          fetch("assets/natural.mp3.srt")
+          var scriptEl = document.getElementById("script-display");
+          fetch("assets/scripts/natural-script.json")
             .then(function (response) {
-              return response.text();
+              return response.json();
             })
-            .then(function (srtText) {
-              var subtitles = parseSRT(srtText);
-              setupKaraokeSubtitles(audio, subtitles, subtitleEl);
+            .then(function (scriptData) {
+              setupScriptSubtitles(audio, scriptData, scriptEl);
             });
           audio.addEventListener("ended", function () {
             jsPsych.finishTrial();
@@ -1294,12 +1421,12 @@ export async function run({
         `,
         choices: ["n", "N", "r", "R"],
         data: { task: "ra_wait", condition: "neutral" },
-        on_finish: function(data) {
+        on_finish: function (data) {
           // Check if R was pressed to repeat audio
           if (data.response === "r" || data.response === "R") {
             data.repeat_audio = true;
           }
-        }
+        },
       },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
@@ -1350,23 +1477,22 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus: `
           <audio id="audio-instruction" autoplay><source src="assets/participate.mp3" type="audio/mpeg"></audio>
-          <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
-            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Participating Instructions Now Playing</h2>
-            <style>.subtitle-scroll::-webkit-scrollbar{display:none}.subtitle-scroll{-ms-overflow-style:none;scrollbar-width:none}</style><div id="subtitle-display" class="subtitle-scroll" style="text-align: center; width: 85ch; max-width: 95vw; height: 550px; overflow-y: auto; overflow-x: hidden; padding: 40px; background: #f9f9f9; border-radius: 12px; position: relative; scroll-behavior: smooth;"></div>
+          <div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; flex-direction: column;">
+            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Participating Instructions</h2>
+            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
         choices: ["n", "N"],
         on_load: function () {
           lastAudioCondition = "participatory";
           var audio = document.getElementById("audio-instruction");
-          var subtitleEl = document.getElementById("subtitle-display");
-          fetch("assets/participate.mp3.srt")
+          var scriptEl = document.getElementById("script-display");
+          fetch("assets/scripts/participate-script.json")
             .then(function (response) {
-              return response.text();
+              return response.json();
             })
-            .then(function (srtText) {
-              var subtitles = parseSRT(srtText);
-              setupKaraokeSubtitles(audio, subtitles, subtitleEl);
+            .then(function (scriptData) {
+              setupScriptSubtitles(audio, scriptData, scriptEl);
             });
           audio.addEventListener("ended", function () {
             jsPsych.finishTrial();
@@ -1396,11 +1522,11 @@ export async function run({
         `,
         choices: ["n", "N", "r", "R"],
         data: { task: "ra_wait", condition: "participatory" },
-        on_finish: function(data) {
+        on_finish: function (data) {
           if (data.response === "r" || data.response === "R") {
             data.repeat_audio = true;
           }
-        }
+        },
       },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
@@ -1451,23 +1577,22 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus: `
           <audio id="audio-instruction" autoplay><source src="assets/observe.mp3" type="audio/mpeg"></audio>
-          <div style="display: flex; align-items: center; justify-content: center; min-height: 50vh; flex-direction: column;">
-            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Observing Instructions Now Playing</h2>
-            <style>.subtitle-scroll::-webkit-scrollbar{display:none}.subtitle-scroll{-ms-overflow-style:none;scrollbar-width:none}</style><div id="subtitle-display" class="subtitle-scroll" style="text-align: center; width: 85ch; max-width: 95vw; height: 550px; overflow-y: auto; overflow-x: hidden; padding: 40px; background: #f9f9f9; border-radius: 12px; position: relative; scroll-behavior: smooth;"></div>
+          <div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; flex-direction: column;">
+            <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Observing Instructions</h2>
+            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
         choices: ["n", "N"],
         on_load: function () {
           lastAudioCondition = "observatory";
           var audio = document.getElementById("audio-instruction");
-          var subtitleEl = document.getElementById("subtitle-display");
-          fetch("assets/observe.mp3.srt")
+          var scriptEl = document.getElementById("script-display");
+          fetch("assets/scripts/observe-script.json")
             .then(function (response) {
-              return response.text();
+              return response.json();
             })
-            .then(function (srtText) {
-              var subtitles = parseSRT(srtText);
-              setupKaraokeSubtitles(audio, subtitles, subtitleEl);
+            .then(function (scriptData) {
+              setupScriptSubtitles(audio, scriptData, scriptEl);
             });
           audio.addEventListener("ended", function () {
             jsPsych.finishTrial();
@@ -1497,11 +1622,11 @@ export async function run({
         `,
         choices: ["n", "N", "r", "R"],
         data: { task: "ra_wait", condition: "observatory" },
-        on_finish: function(data) {
+        on_finish: function (data) {
           if (data.response === "r" || data.response === "R") {
             data.repeat_audio = true;
           }
-        }
+        },
       },
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
@@ -1632,22 +1757,82 @@ export async function run({
   for (var b = 0; b < blocks.length; b++) {
     var block = blocks[b];
 
+    // Create block-specific versions of the trials with block data and monitor updates
+    var blockAudioIntro = Object.assign({}, blockPractice[block.blockType].audio_intro);
+    blockAudioIntro.data = Object.assign({}, blockAudioIntro.data, {
+      block_type: block.blockType,
+      block_order: block.blockOrder,
+    });
+    blockAudioIntro.on_start = function (trial) {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "audio_intro",
+        block: {
+          order: trial.data.block_order,
+          type: trial.data.block_type,
+        },
+      });
+    };
+
+    var blockAudioPlay = Object.assign({}, blockPractice[block.blockType].audio_play);
+    blockAudioPlay.data = Object.assign({}, blockAudioPlay.data, {
+      block_type: block.blockType,
+      block_order: block.blockOrder,
+    });
+    blockAudioPlay.on_start = function (trial) {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "audio_play",
+        block: {
+          order: trial.data.block_order,
+          type: trial.data.block_type,
+        },
+      });
+    };
+
+    var blockRaWait = Object.assign({}, blockPractice[block.blockType].ra_wait);
+    blockRaWait.data = Object.assign({}, blockRaWait.data, {
+      block_type: block.blockType,
+      block_order: block.blockOrder,
+    });
+    // Update the on_start to include block info
+    var originalRaOnStart = blockRaWait.on_start;
+    blockRaWait.on_start = function (trial) {
+      sendMonitorUpdate({
+        type: "ra_needed",
+        condition: trial.data.condition,
+        instruction: "RA Needed - " + trial.data.condition.charAt(0).toUpperCase() + trial.data.condition.slice(1) + " Block Q&A",
+        block: {
+          order: trial.data.block_order,
+          type: trial.data.block_type,
+        },
+      });
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "ra_wait",
+        block: {
+          order: trial.data.block_order,
+          type: trial.data.block_type,
+        },
+      });
+    };
+
     // Create a function to build the audio + RA Q&A sequence with repeat functionality
     // This uses a loop_function to allow repeating the audio if R is pressed during Q&A
     var audio_ra_procedure = {
       timeline: [
-        blockPractice[block.blockType].audio_intro,
-        blockPractice[block.blockType].audio_play,
-        blockPractice[block.blockType].ra_wait
+        blockAudioIntro,
+        blockAudioPlay,
+        blockRaWait,
       ],
-      loop_function: function(data) {
+      loop_function: function (data) {
         // Check if the last trial (ra_wait) had R pressed
         var lastTrial = data.values()[data.values().length - 1];
         if (lastTrial.response === "r" || lastTrial.response === "R") {
           return true; // Loop back to play audio again
         }
         return false; // Continue to next trial
-      }
+      },
     };
 
     // Add practice sequence for this block
@@ -1660,8 +1845,42 @@ export async function run({
     });
 
     timeline.push(audio_ra_procedure);
-    timeline.push(blockPractice[block.blockType].practice_intro);
-    timeline.push(blockPractice[block.blockType].practice_video);
+
+    // Add block-specific practice_intro with monitor update
+    var blockPracticeIntro = Object.assign({}, blockPractice[block.blockType].practice_intro);
+    blockPracticeIntro.data = Object.assign({}, blockPracticeIntro.data, {
+      block_type: block.blockType,
+      block_order: block.blockOrder,
+    });
+    blockPracticeIntro.on_start = function (trial) {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "practice_intro",
+        block: {
+          order: trial.data.block_order,
+          type: trial.data.block_type,
+        },
+      });
+    };
+    timeline.push(blockPracticeIntro);
+
+    // Add block-specific practice_video with monitor update
+    var blockPracticeVideo = Object.assign({}, blockPractice[block.blockType].practice_video);
+    blockPracticeVideo.data = Object.assign({}, blockPracticeVideo.data, {
+      block_type: block.blockType,
+      block_order: block.blockOrder,
+    });
+    blockPracticeVideo.on_start = function (trial) {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "practice_video",
+        block: {
+          order: trial.data.block_order,
+          type: trial.data.block_type,
+        },
+      });
+    };
+    timeline.push(blockPracticeVideo);
 
     // Add rating questions after practice video
     timeline.push(rating_procedure);
@@ -1712,21 +1931,21 @@ export async function run({
         block_type: jsPsych.timelineVariable("block_type"),
         block_order: jsPsych.timelineVariable("block_order"),
       },
-      on_start: function() {
+      on_start: function (trial) {
         sendMonitorUpdate({
-          type: 'trial_update',
-          task: 'video_dial_rating',
+          type: "trial_update",
+          task: "video_dial_rating",
           block: {
-            order: jsPsych.evaluateTimelineVariable('block_order'),
-            type: jsPsych.evaluateTimelineVariable('block_type'),
+            order: trial.data.block_order,
+            type: trial.data.block_type,
           },
           video: {
-            name: jsPsych.evaluateTimelineVariable('filename'),
+            name: trial.data.filename,
             practice: false,
-            trial_in_block: jsPsych.evaluateTimelineVariable('trial_in_block'),
+            trial_in_block: trial.data.trial_in_block,
           },
         });
-      }
+      },
     };
 
     // Video procedure for this block (dial video + 4 rating questions)

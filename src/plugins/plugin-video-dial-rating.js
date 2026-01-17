@@ -476,16 +476,8 @@ class VideoDialRatingPlugin {
   startCountdown(trial) {
     console.log("Starting countdown:", trial.countdown_duration, "seconds");
     let secondsLeft = trial.countdown_duration;
-    let countdownInterval = null;
 
     const startVideo = () => {
-      // Clear the countdown interval if still running
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-      }
-      // Remove click listener
-      document.removeEventListener("click", skipHandler);
-
       // Record baseline value
       this.baselineValue = this.currentValue;
       console.log("Baseline value recorded:", this.baselineValue);
@@ -502,18 +494,8 @@ class VideoDialRatingPlugin {
       });
     };
 
-    // Allow click to skip countdown
-    const skipHandler = (e) => {
-      if (e.button === 0) {
-        e.preventDefault();
-        console.log("Countdown skipped via click");
-        startVideo();
-      }
-    };
-    document.addEventListener("click", skipHandler);
-    this.countdownSkipHandler = skipHandler;
-
-    countdownInterval = setInterval(() => {
+    // No skip option - countdown must complete
+    const countdownInterval = setInterval(() => {
       secondsLeft--;
       console.log("Countdown:", secondsLeft);
       if (this.countdownNumber) {
@@ -521,6 +503,7 @@ class VideoDialRatingPlugin {
       }
 
       if (secondsLeft <= 0) {
+        clearInterval(countdownInterval);
         startVideo();
       }
     }, 1000);
@@ -739,9 +722,6 @@ class VideoDialRatingPlugin {
     }
     if (this.centeringClickHandler) {
       document.removeEventListener("mousedown", this.centeringClickHandler);
-    }
-    if (this.countdownSkipHandler) {
-      document.removeEventListener("click", this.countdownSkipHandler);
     }
 
     // Restore cursor
