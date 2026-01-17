@@ -1,7 +1,7 @@
 /**
  * @title test
  * @description test
- * @version 2.6.0
+ * @version 2.7.0
  *
  * @assets assets/
  */
@@ -597,7 +597,7 @@ export async function run({
             You will now watch a nature video. Take this moment to get comfortable, relax your shoulders, breathe normally, and simply watch the video.
           </p>
           <p style="font-size: 16px; color: #888; margin-top: 30px;">
-            Press <strong>N</strong> to continue.
+            Press the <strong>button dial</strong> to continue.
           </p>
         </div>
       </div>
@@ -916,7 +916,7 @@ export async function run({
           </p>
 
           <p style="font-size: 20px; line-height: 1.8;">
-            Press <strong>N</strong> when you are ready to begin.
+            Press the <strong>button dial</strong> when you are ready to begin.
           </p>
         </div>
       </div>
@@ -1364,12 +1364,13 @@ export async function run({
                 As the audio plays, you may follow along with the words on the screen or on your own copy. If you have any questions or anything is unclear, feel free to jot down notes on the sheet.
               </p>
               <p style="font-size: 16px; color: #888; margin-top: 30px;">
-                Press <strong>N</strong> to continue.
+                The audio will begin automatically.
               </p>
             </div>
           </div>
         `,
-        choices: ["n", "N"],
+        choices: "NO_KEYS",
+        trial_duration: 3000,
         data: { task: "audio_intro", condition: "neutral" },
       },
       audio_play: {
@@ -1381,7 +1382,7 @@ export async function run({
             <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
-        choices: ["n", "N"],
+        choices: "NO_KEYS",
         on_load: function () {
           lastAudioCondition = "neutral";
           var audio = document.getElementById("audio-instruction");
@@ -1431,7 +1432,7 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press <strong>N</strong> to continue.</span></p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
         trial_duration: 5000,
         data: { task: "practice_intro", condition: "neutral" },
@@ -1465,12 +1466,13 @@ export async function run({
                 As the audio plays, you may follow along with the words on the screen or on your own copy. If you have any questions or anything is unclear, feel free to jot down notes on the sheet.
               </p>
               <p style="font-size: 16px; color: #888; margin-top: 30px;">
-                Press <strong>N</strong> to continue.
+                The audio will begin automatically.
               </p>
             </div>
           </div>
         `,
-        choices: ["n", "N"],
+        choices: "NO_KEYS",
+        trial_duration: 3000,
         data: { task: "audio_intro", condition: "participatory" },
       },
       audio_play: {
@@ -1482,7 +1484,7 @@ export async function run({
             <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
-        choices: ["n", "N"],
+        choices: "NO_KEYS",
         on_load: function () {
           lastAudioCondition = "participatory";
           var audio = document.getElementById("audio-instruction");
@@ -1531,7 +1533,7 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press <strong>N</strong> to continue.</span></p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
         trial_duration: 5000,
         data: { task: "practice_intro", condition: "participatory" },
@@ -1565,12 +1567,13 @@ export async function run({
                 As the audio plays, you may follow along with the words on the screen or on your own copy. If you have any questions or anything is unclear, feel free to jot down notes on the sheet.
               </p>
               <p style="font-size: 16px; color: #888; margin-top: 30px;">
-                Press <strong>N</strong> to continue.
+                The audio will begin automatically.
               </p>
             </div>
           </div>
         `,
-        choices: ["n", "N"],
+        choices: "NO_KEYS",
+        trial_duration: 3000,
         data: { task: "audio_intro", condition: "observatory" },
       },
       audio_play: {
@@ -1582,7 +1585,7 @@ export async function run({
             <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
-        choices: ["n", "N"],
+        choices: "NO_KEYS",
         on_load: function () {
           lastAudioCondition = "observatory";
           var audio = document.getElementById("audio-instruction");
@@ -1631,7 +1634,7 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press <strong>N</strong> to continue.</span></p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
         choices: ["n", "N"],
         trial_duration: 5000,
         data: { task: "practice_intro", condition: "observatory" },
