@@ -764,6 +764,109 @@
       display: inline-block;
     }
 
+    /* Control Buttons */
+    .control-btn {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .control-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+
+    .control-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .control-btn.active {
+      background: var(--warning-light);
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .control-btn.active:hover {
+      background: #fff0b3;
+    }
+
+    .control-btn.continue-btn {
+      background: var(--success-light);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .control-btn.continue-btn:hover {
+      background: #c2f0c8;
+    }
+
+    .control-btn.video-pause {
+      border-color: #cf222e;
+      color: #cf222e;
+    }
+
+    .control-btn.video-pause:hover {
+      background: #ffebe9;
+    }
+
+    .control-btn.video-pause.active {
+      background: #ffebe9;
+      border-color: #cf222e;
+      color: #cf222e;
+    }
+
+    .control-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Status indicator banners */
+    .status-indicator {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 24px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 14px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .status-indicator.hidden {
+      display: none;
+    }
+
+    .status-indicator.session-paused {
+      background: var(--warning);
+      color: white;
+    }
+
+    .status-indicator.video-paused {
+      background: #cf222e;
+      color: white;
+    }
+
+    .status-indicator.ra-waiting {
+      background: var(--accent);
+      color: white;
+    }
+
     /* Utility */
     .hidden { display: none !important; }
   </style>
@@ -778,11 +881,33 @@
         <span id="session-timer">00:00</span>
       </div>
     </div>
-    <div class="status">
-      <div class="status-dot" id="status-dot"></div>
-      <span id="status-text">Disconnected</span>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div class="control-buttons hidden" id="control-buttons">
+        <button class="control-btn" id="session-pause-btn" onclick="toggleSessionPause()">
+          <span id="session-pause-icon">⏸</span>
+          <span id="session-pause-text">Pause Session</span>
+        </button>
+        <button class="control-btn continue-btn hidden" id="continue-btn" onclick="sendContinue()">
+          <span>▶</span>
+          <span>Continue</span>
+        </button>
+      </div>
+      <div class="status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Disconnected</span>
+      </div>
     </div>
   </header>
+
+  <div class="status-indicator session-paused hidden" id="session-paused-indicator">
+    ⏸ SESSION PAUSED (will pause after current trial)
+  </div>
+  <div class="status-indicator video-paused hidden" id="video-paused-indicator">
+    ⏹ VIDEO PAUSED
+  </div>
+  <div class="status-indicator ra-waiting hidden" id="ra-waiting-indicator">
+    👋 RA NEEDED - Click Continue when ready
+  </div>
 
   <div id="waiting" class="waiting">
     <div class="waiting-icon">
@@ -1089,6 +1214,10 @@
         <div class="current-video" id="current-video-section">
           <div class="current-video-label">Current Video</div>
           <div class="current-video-name" id="current-video-name">--</div>
+          <button class="control-btn video-pause hidden" id="video-pause-btn" onclick="toggleVideoPause()" style="margin-top: 12px; width: 100%;">
+            <span id="video-pause-icon">⏹</span>
+            <span id="video-pause-text">Pause Video</span>
+          </button>
         </div>
 
         <div class="current-ratings" id="current-ratings">
@@ -1130,6 +1259,9 @@
     // State
     let state = {
       connected: false,
+      isSessionPaused: false,
+      isVideoPaused: false,
+      isRaWaiting: false,
       participantId: null,
       currentStage: null,
       currentBlock: null,
@@ -1206,6 +1338,113 @@
       const text = document.getElementById('status-text');
       dot.classList.toggle('connected', state.connected);
       text.textContent = state.connected ? 'Connected' : 'Disconnected';
+    }
+
+    // Session Pause - pauses after current trial completes (jsPsych level)
+    function toggleSessionPause() {
+      console.log('toggleSessionPause called, ws ready:', ws?.readyState === WebSocket.OPEN);
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.log('WebSocket not ready, aborting');
+        return;
+      }
+
+      const newPausedState = !state.isSessionPaused;
+      console.log('Sending control_command:', newPausedState ? 'pause_session' : 'resume_session');
+      ws.send(JSON.stringify({
+        type: 'control_command',
+        action: newPausedState ? 'pause_session' : 'resume_session',
+        timestamp: Date.now()
+      }));
+
+      state.isSessionPaused = newPausedState;
+      updateControlButtons();
+    }
+
+    // Video Pause - immediately pauses the video with black overlay
+    function toggleVideoPause() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      const newPausedState = !state.isVideoPaused;
+      ws.send(JSON.stringify({
+        type: 'control_command',
+        action: newPausedState ? 'pause_video' : 'resume_video',
+        timestamp: Date.now()
+      }));
+
+      state.isVideoPaused = newPausedState;
+      updateControlButtons();
+    }
+
+    // Continue - advances past RA wait screens
+    function sendContinue() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(JSON.stringify({
+        type: 'control_command',
+        action: 'continue',
+        timestamp: Date.now()
+      }));
+
+      state.isRaWaiting = false;
+      updateControlButtons();
+    }
+
+    function updateControlButtons() {
+      const sessionBtn = document.getElementById('session-pause-btn');
+      const sessionIcon = document.getElementById('session-pause-icon');
+      const sessionText = document.getElementById('session-pause-text');
+      const sessionIndicator = document.getElementById('session-paused-indicator');
+
+      const videoBtn = document.getElementById('video-pause-btn');
+      const videoIcon = document.getElementById('video-pause-icon');
+      const videoText = document.getElementById('video-pause-text');
+      const videoIndicator = document.getElementById('video-paused-indicator');
+
+      const continueBtn = document.getElementById('continue-btn');
+      const raIndicator = document.getElementById('ra-waiting-indicator');
+
+      // Session pause button
+      if (state.isSessionPaused) {
+        sessionBtn.classList.add('active');
+        sessionIcon.textContent = '▶';
+        sessionText.textContent = 'Resume Session';
+        sessionIndicator.classList.remove('hidden');
+      } else {
+        sessionBtn.classList.remove('active');
+        sessionIcon.textContent = '⏸';
+        sessionText.textContent = 'Pause Session';
+        sessionIndicator.classList.add('hidden');
+      }
+
+      // Video pause button
+      if (state.isVideoPaused) {
+        videoBtn.classList.add('active');
+        videoIcon.textContent = '▶';
+        videoText.textContent = 'Resume Video';
+        videoIndicator.classList.remove('hidden');
+      } else {
+        videoBtn.classList.remove('active');
+        videoIcon.textContent = '⏹';
+        videoText.textContent = 'Pause Video';
+        videoIndicator.classList.add('hidden');
+      }
+
+      // Continue button and RA indicator
+      if (state.isRaWaiting) {
+        continueBtn.classList.remove('hidden');
+        raIndicator.classList.remove('hidden');
+      } else {
+        continueBtn.classList.add('hidden');
+        raIndicator.classList.add('hidden');
+      }
+    }
+
+    function showControlButtons() {
+      document.getElementById('control-buttons').classList.remove('hidden');
+    }
+
+    function hideControlButtons() {
+      document.getElementById('control-buttons').classList.add('hidden');
     }
 
     // Session Timer
@@ -1413,6 +1652,32 @@
         case 'session_end':
           setStageActive('complete');
           stopSessionTimer();
+          hideControlButtons();
+          state.isSessionPaused = false;
+          state.isVideoPaused = false;
+          state.isRaWaiting = false;
+          updateControlButtons();
+          break;
+
+        case 'status_update':
+          if (msg.status === 'session_paused') {
+            state.isSessionPaused = true;
+          } else if (msg.status === 'session_resumed') {
+            state.isSessionPaused = false;
+          } else if (msg.status === 'video_paused') {
+            state.isVideoPaused = true;
+          } else if (msg.status === 'video_resumed') {
+            state.isVideoPaused = false;
+          } else if (msg.status === 'continued') {
+            state.isRaWaiting = false;
+          }
+          updateControlButtons();
+          break;
+
+        case 'ra_needed':
+          state.isRaWaiting = true;
+          updateControlButtons();
+          handleRaNeeded(msg);
           break;
       }
     }
@@ -1447,6 +1712,9 @@
 
       // Start session timer
       startSessionTimer();
+
+      // Show pause button
+      showControlButtons();
 
       // Mark equipment and setup as completed, instructions as active
       setStageCompleted('equipment');
@@ -1504,15 +1772,24 @@
       const task = msg.task;
       const block = msg.block;
 
-      // Default: hide recording indicator unless explicitly showing it
+      // Default: hide recording indicator and video pause button unless explicitly showing it
       const videoTasks = ['nature_video_dial', 'practice_video', 'video_dial_rating'];
       if (!videoTasks.includes(task)) {
         state.isRecording = false;
         document.getElementById('live-indicator').classList.add('hidden');
+        // Hide video pause button when not in video trial
+        document.getElementById('video-pause-btn').classList.add('hidden');
+        // Reset video pause state when video trial ends
+        if (state.isVideoPaused) {
+          state.isVideoPaused = false;
+          updateControlButtons();
+        }
       } else {
         // Clear dial history and ratings when starting a new video
         clearDialHistory();
         clearTrialRatings();
+        // Show video pause button during video trials
+        document.getElementById('video-pause-btn').classList.remove('hidden');
       }
 
       if (task === 'audio_test' || task === 'dial_calibration' || task === 'dial_test') {

@@ -42,7 +42,7 @@ const info = {
     /** Starting value of the dial */
     dial_start: {
       type: ParameterType.INT,
-      default: 5,
+      default: 0,
     },
     /** Sampling rate in milliseconds */
     sample_rate_ms: {
@@ -213,6 +213,34 @@ class VideoDialRatingPlugin {
           font-weight: bold;
           margin-top: 20px;
         }
+        #monitor-pause-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: #000;
+          display: none;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          z-index: 50;
+        }
+        #monitor-pause-overlay.visible {
+          display: flex;
+        }
+        #monitor-pause-text {
+          color: #fff;
+          font-size: 36px;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 4px;
+        }
+        #monitor-pause-subtext {
+          color: #888;
+          font-size: 18px;
+          margin-top: 20px;
+        }
         #centering-target {
           position: fixed;
           bottom: 20px;
@@ -321,9 +349,13 @@ class VideoDialRatingPlugin {
           <div id="video-container">
             <div id="video-overlay">
               <div id="overlay-phase">centering</div>
-              <div id="overlay-text">Turn the dial until the arrow points straight up (to 5)</div>
+              <div id="overlay-text">Turn the dial until the arrow points to 0</div>
               <div id="overlay-instruction">Click the dial button when ready</div>
               <div id="countdown-number" style="display: none;">${trial.countdown_duration}</div>
+            </div>
+            <div id="monitor-pause-overlay">
+              <div id="monitor-pause-text">Video Paused</div>
+              <div id="monitor-pause-subtext">Waiting for researcher to resume</div>
             </div>
             <video id="jspsych-video-dial-video"
                    ${isFullscreen ? '' : 'width="' + trial.video_width + '" height="' + trial.video_height + '"'}
@@ -377,6 +409,11 @@ class VideoDialRatingPlugin {
     this.countdownNumber = display_element.querySelector("#countdown-number");
     this.centeringTarget = display_element.querySelector("#centering-target");
     console.log("Centering target element:", this.centeringTarget);
+    this.pauseOverlay = display_element.querySelector("#monitor-pause-overlay");
+    this.isPausedByMonitor = false;
+
+    // Expose this plugin instance globally for monitor control
+    window.__videoDialPlugin = this;
 
     // Initialize dial position
     this.updateDialDisplay();
@@ -638,22 +675,13 @@ class VideoDialRatingPlugin {
     // Hijack wheel events for dial control
     // Each scroll step changes value by scrollStep (default 0.5)
 
-    // Detect if Mac (has natural/reverse scrolling by default) vs Windows
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0 ||
-                  navigator.userAgent.toUpperCase().indexOf('MAC') >= 0;
-    console.log("OS detection - isMac:", isMac);
-
     const handleWheel = (e) => {
       // Prevent all default scrolling
       e.preventDefault();
       e.stopPropagation();
 
-      // Normalize scroll delta - most mice send deltaY in multiples of ~100
-      // We want each "click" of the scroll wheel to be one step
-      // Mac: positive deltaY = scroll down = decrease value (natural scrolling reversed)
-      // Windows: positive deltaY = scroll down = decrease value (no reversal needed)
-      // For Mac we reverse: positive deltaY should increase value
-      const scrollDirection = isMac ? (e.deltaY > 0 ? 1 : -1) : (e.deltaY > 0 ? -1 : 1);
+      // Optimized for Windows with physical dial
+      const scrollDirection = e.deltaY > 0 ? 1 : -1;
       const newValue = this.currentValue + (scrollDirection * this.scrollStep);
       this.updateDialValue(newValue);
 
@@ -764,6 +792,32 @@ class VideoDialRatingPlugin {
     };
 
     this.jsPsych.finishTrial(trialData);
+  }
+
+  // Monitor-controlled pause: pauses video and shows overlay
+  pauseVideo() {
+    if (this.video && !this.isPausedByMonitor) {
+      this.isPausedByMonitor = true;
+      this.video.pause();
+      if (this.pauseOverlay) {
+        this.pauseOverlay.classList.add("visible");
+      }
+      console.log("Video paused by monitor");
+    }
+  }
+
+  // Monitor-controlled resume: resumes video and hides overlay
+  resumeVideo() {
+    if (this.video && this.isPausedByMonitor) {
+      this.isPausedByMonitor = false;
+      if (this.pauseOverlay) {
+        this.pauseOverlay.classList.remove("visible");
+      }
+      this.video.play().catch((e) => {
+        console.log("Video resume failed:", e);
+      });
+      console.log("Video resumed by monitor");
+    }
   }
 }
 

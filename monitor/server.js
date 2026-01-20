@@ -85,9 +85,18 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
-      console.log(`[${new Date().toISOString()}] Received:`, message.type);
+      console.log(`[${new Date().toISOString()}] Received from ${clientType}:`, message.type);
 
-      // Update session state
+      // Handle messages from dashboard clients (control commands)
+      if (clientType === 'dashboard') {
+        if (message.type === 'control_command' && experimentClient) {
+          console.log(`[${new Date().toISOString()}] Routing control command to experiment:`, message.action);
+          experimentClient.send(JSON.stringify(message));
+        }
+        return; // Dashboard messages don't update session state
+      }
+
+      // Update session state (experiment messages only)
       if (message.type === 'session_start') {
         currentSession = {
           participant_id: message.participant_id,
