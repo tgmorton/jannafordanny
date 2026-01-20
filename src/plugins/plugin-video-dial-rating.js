@@ -462,6 +462,11 @@ class VideoDialRatingPlugin {
       document.removeEventListener("mousedown", clickHandler);
       this.dialReady = true;
 
+      // Reset dial value to dial_start after calibration (calibration movements shouldn't affect baseline)
+      this.currentValue = trial.dial_start;
+      this.updateDialDisplay();
+      console.log("Dial reset to dial_start after calibration:", this.currentValue);
+
       // Show the dial and hide the centering target
       const dialContainer = document.getElementById("dial-container");
       if (dialContainer) {

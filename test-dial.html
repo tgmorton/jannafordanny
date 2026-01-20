@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dial Input Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 40px;
+      background: #1a1a1a;
+      color: white;
+    }
+    h1 { margin-bottom: 10px; }
+    .info { color: #888; margin-bottom: 30px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .stat-box {
+      background: #333;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 48px;
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    .stat-label { color: #888; margin-top: 5px; }
+    #dial-display {
+      font-size: 120px;
+      text-align: center;
+      padding: 40px;
+      background: #222;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    #event-log {
+      background: #222;
+      padding: 20px;
+      border-radius: 8px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .event-up { color: #4CAF50; }
+    .event-down { color: #f44336; }
+    .event-button { color: #ff9800; }
+    .timer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      font-size: 24px;
+      background: #333;
+      padding: 10px 20px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="timer">Time: <span id="timer">30</span>s</div>
+
+  <h1>Dial Input Test</h1>
+  <p class="info">Turn the dial to capture scroll events. Test runs for 30 seconds.</p>
+
+  <div id="dial-display">5.0</div>
+
+  <div class="stats">
+    <div class="stat-box">
+      <div class="stat-value" id="total-events">0</div>
+      <div class="stat-label">Scroll Events</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="up-events">0</div>
+      <div class="stat-label">Scroll Up (↑)</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="down-events">0</div>
+      <div class="stat-label">Scroll Down (↓)</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="button-events" style="color: #ff9800;">0</div>
+      <div class="stat-label">Button/Key Events</div>
+    </div>
+  </div>
+
+  <h3>Event Log</h3>
+  <div id="event-log"></div>
+
+  <script>
+    const events = [];
+    const startTime = Date.now();
+    const duration = 30000; // 30 seconds
+
+    let dialValue = 5;
+    const scrollStep = 0.5;
+    let totalEvents = 0;
+    let upEvents = 0;
+    let downEvents = 0;
+    let buttonEvents = 0;
+
+    const dialDisplay = document.getElementById('dial-display');
+    const eventLog = document.getElementById('event-log');
+    const timerDisplay = document.getElementById('timer');
+
+    // Log any event type
+    function logAnyEvent(type, details, className = '') {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      const line = document.createElement('div');
+      line.className = className;
+      line.style.color = className ? '' : '#ff9800';
+      line.textContent = `[${elapsed}s] ${type}: ${details}`;
+      eventLog.insertBefore(line, eventLog.firstChild);
+      console.log(`[${elapsed}s] ${type}:`, details);
+    }
+
+    // Capture ALL keyboard events
+    document.addEventListener('keydown', (e) => {
+      buttonEvents++;
+      logAnyEvent('KEYDOWN', `key="${e.key}" code="${e.code}" keyCode=${e.keyCode} which=${e.which}`, 'event-button');
+      events.push({ type: 'keydown', time: Date.now() - startTime, key: e.key, code: e.code, keyCode: e.keyCode });
+    });
+
+    document.addEventListener('keyup', (e) => {
+      logAnyEvent('KEYUP', `key="${e.key}" code="${e.code}"`, 'event-button');
+    });
+
+    // Capture mouse button events
+    document.addEventListener('mousedown', (e) => {
+      buttonEvents++;
+      logAnyEvent('MOUSEDOWN', `button=${e.button} buttons=${e.buttons} x=${e.clientX} y=${e.clientY}`, 'event-button');
+      events.push({ type: 'mousedown', time: Date.now() - startTime, button: e.button });
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      logAnyEvent('MOUSEUP', `button=${e.button}`, 'event-button');
+    });
+
+    document.addEventListener('click', (e) => {
+      logAnyEvent('CLICK', `button=${e.button} x=${e.clientX} y=${e.clientY}`, 'event-button');
+    });
+
+    document.addEventListener('auxclick', (e) => {
+      logAnyEvent('AUXCLICK', `button=${e.button} (middle/right click)`, 'event-button');
+    });
+
+    document.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      logAnyEvent('CONTEXTMENU', `right-click detected`, 'event-button');
+    });
+
+    // Capture any other input events
+    document.addEventListener('input', (e) => {
+      logAnyEvent('INPUT', `type=${e.inputType} data=${e.data}`, 'event-button');
+    });
+
+    function updateStats() {
+      document.getElementById('total-events').textContent = totalEvents;
+      document.getElementById('up-events').textContent = upEvents;
+      document.getElementById('button-events').textContent = buttonEvents;
+      document.getElementById('down-events').textContent = downEvents;
+    }
+
+    function logEvent(direction, dy, deltaMode) {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      const modeStr = deltaMode === 0 ? 'PIXEL' : deltaMode === 1 ? 'LINE' : 'PAGE';
+      const cls = direction === 'UP' ? 'event-up' : 'event-down';
+      const line = document.createElement('div');
+      line.className = cls;
+      line.textContent = `[${elapsed}s] Scroll ${direction} | dy=${dy} | mode=${modeStr} | dial=${dialValue.toFixed(1)}`;
+      eventLog.insertBefore(line, eventLog.firstChild);
+    }
+
+    function handleWheel(e) {
+      e.preventDefault();
+
+      const elapsed = Date.now() - startTime;
+      if (elapsed > duration) return;
+
+      totalEvents++;
+
+      // Determine direction - counter-clockwise on physical dial = clockwise on screen = increase
+      // Positive deltaY from physical dial = counter-clockwise = increase value
+      const direction = e.deltaY > 0 ? 'UP' : 'DOWN';
+      if (direction === 'UP') {
+        upEvents++;
+        dialValue = Math.min(10, dialValue + scrollStep);
+      } else {
+        downEvents++;
+        dialValue = Math.max(0, dialValue - scrollStep);
+      }
+
+      // Store event
+      events.push({
+        time: elapsed,
+        deltaY: e.deltaY,
+        deltaMode: e.deltaMode,
+        direction: direction
+      });
+
+      // Update display
+      dialDisplay.textContent = dialValue.toFixed(1);
+      updateStats();
+      logEvent(direction, e.deltaY, e.deltaMode);
+    }
+
+    // Hijack all wheel events
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('wheel', handleWheel, { passive: false });
+
+    // Timer countdown
+    const timerInterval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((duration - (Date.now() - startTime)) / 1000));
+      timerDisplay.textContent = remaining;
+
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+
+        // Show summary
+        const summary = document.createElement('div');
+        summary.style.cssText = 'margin-top: 20px; padding: 20px; background: #333; border-radius: 8px;';
+        summary.innerHTML = `
+          <h3>Test Complete!</h3>
+          <p>Total events: ${totalEvents}</p>
+          <p>Up events: ${upEvents}</p>
+          <p>Down events: ${downEvents}</p>
+          <p>Unique deltaY values: ${[...new Set(events.map(e => e.deltaY))].sort((a,b) => a-b).join(', ')}</p>
+          ${events.length > 1 ? `<p>Avg interval: ${(events.reduce((sum, e, i, arr) => i > 0 ? sum + (e.time - arr[i-1].time) : sum, 0) / (events.length - 1)).toFixed(1)}ms</p>` : ''}
+        `;
+        document.body.appendChild(summary);
+
+        console.log('All events:', events);
+      }
+    }, 100);
+  </script>
+</body>
+</html>

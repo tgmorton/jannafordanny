@@ -147,6 +147,12 @@ export async function run({
             jsPsych.pluginAPI.keyDown("m");
             jsPsych.pluginAPI.keyUp("m");
             sendMonitorUpdate({ type: "status_update", status: "continued" });
+          } else if (message.action === "send_key" && message.key) {
+            // Generic key send - simulate any keypress
+            console.log("Monitor: Sending key", message.key);
+            jsPsych.pluginAPI.keyDown(message.key);
+            jsPsych.pluginAPI.keyUp(message.key);
+            sendMonitorUpdate({ type: "status_update", status: "key_sent", key: message.key });
           }
         }
       } catch (e) {
@@ -1503,11 +1509,30 @@ export async function run({
         type: VideoKeyboardResponsePlugin,
         stimulus: ["assets/naturalpractice.mp4"],
         choices: ["r", "R"],
-        width: 1000,
-        height: 750,
+        width: "100%",
+        height: "100%",
         autoplay: true,
         response_ends_trial: true,
         trial_ends_after_video: true,
+        css_classes: ["fullscreen-video"],
+        on_load: function () {
+          // Make video fullscreen
+          var container = document.querySelector("#jspsych-content");
+          if (container) {
+            container.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: 100vw; padding: 0; margin: 0; background: #000;";
+          }
+          var video = document.querySelector("video");
+          if (video) {
+            video.style.cssText = "width: 100vw; height: 100vh; object-fit: contain; background: #000;";
+          }
+        },
+        on_finish: function () {
+          // Reset container styles
+          var container = document.querySelector("#jspsych-content");
+          if (container) {
+            container.style.cssText = "";
+          }
+        },
         data: {
           task: "practice_video",
           condition: "neutral",
@@ -1605,11 +1630,28 @@ export async function run({
         type: VideoKeyboardResponsePlugin,
         stimulus: ["assets/participatepractice.mp4"],
         choices: ["r", "R"],
-        width: 1000,
-        height: 750,
+        width: "100%",
+        height: "100%",
         autoplay: true,
         response_ends_trial: true,
         trial_ends_after_video: true,
+        css_classes: ["fullscreen-video"],
+        on_load: function () {
+          var container = document.querySelector("#jspsych-content");
+          if (container) {
+            container.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: 100vw; padding: 0; margin: 0; background: #000;";
+          }
+          var video = document.querySelector("video");
+          if (video) {
+            video.style.cssText = "width: 100vw; height: 100vh; object-fit: contain; background: #000;";
+          }
+        },
+        on_finish: function () {
+          var container = document.querySelector("#jspsych-content");
+          if (container) {
+            container.style.cssText = "";
+          }
+        },
         data: {
           task: "practice_video",
           condition: "participatory",
@@ -1707,11 +1749,28 @@ export async function run({
         type: VideoKeyboardResponsePlugin,
         stimulus: ["assets/observepractice.mp4"],
         choices: ["r", "R"],
-        width: 1000,
-        height: 750,
+        width: "100%",
+        height: "100%",
         autoplay: true,
         response_ends_trial: true,
         trial_ends_after_video: true,
+        css_classes: ["fullscreen-video"],
+        on_load: function () {
+          var container = document.querySelector("#jspsych-content");
+          if (container) {
+            container.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: 100vw; padding: 0; margin: 0; background: #000;";
+          }
+          var video = document.querySelector("video");
+          if (video) {
+            video.style.cssText = "width: 100vw; height: 100vh; object-fit: contain; background: #000;";
+          }
+        },
+        on_finish: function () {
+          var container = document.querySelector("#jspsych-content");
+          if (container) {
+            container.style.cssText = "";
+          }
+        },
         data: {
           task: "practice_video",
           condition: "observatory",

@@ -313,7 +313,7 @@
       font-weight: 500;
     }
 
-    .ra-continue-btn {
+    .ra-continue-btn, .ra-replay-btn {
       margin-left: auto;
       padding: 4px 12px;
       background: var(--warning);
@@ -325,12 +325,37 @@
       cursor: pointer;
     }
 
+    .ra-replay-btn {
+      margin-left: auto;
+      background: var(--accent);
+    }
+
     .ra-continue-btn:hover {
       background: #856100;
     }
 
-    .ra-continue-btn.hidden {
+    .ra-replay-btn:hover {
+      background: #0550ae;
+    }
+
+    .ra-continue-btn.hidden, .ra-replay-btn.hidden, .nature-continue-btn.hidden {
       display: none;
+    }
+
+    .nature-continue-btn {
+      margin-left: 12px;
+      padding: 4px 12px;
+      background: var(--warning);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .nature-continue-btn:hover {
+      background: #856100;
     }
 
     /* Instruction Containers (for timeline) */
@@ -907,6 +932,10 @@
           <span id="session-pause-icon">⏸</span>
           <span id="session-pause-text">Pause Session</span>
         </button>
+        <button class="control-btn" id="skip-trial-btn" onclick="skipTrial()" style="background: #cf222e; color: white;">
+          <span>⏭</span>
+          <span>Skip Trial</span>
+        </button>
       </div>
       <div class="status">
         <div class="status-dot" id="status-dot"></div>
@@ -1001,7 +1030,10 @@
               </svg>
             </div>
             <div class="timeline-content">
-              <div class="timeline-label">Nature Practice</div>
+              <div class="timeline-label">
+                Nature Practice
+                <button class="nature-continue-btn hidden" id="nature-continue-btn" onclick="sendNatureContinue()">Continue</button>
+              </div>
               <div class="timeline-sublabel">Practice video with ratings</div>
             </div>
           </div>
@@ -1049,6 +1081,7 @@
                   </svg>
                 </div>
                 RA Q&A
+                <button class="ra-replay-btn hidden" onclick="sendReplay()">Replay</button>
                 <button class="ra-continue-btn hidden" onclick="sendContinue()">Continue</button>
               </div>
               <div class="block-stage pending" data-substage="practice">
@@ -1103,6 +1136,7 @@
                   </svg>
                 </div>
                 RA Q&A
+                <button class="ra-replay-btn hidden" onclick="sendReplay()">Replay</button>
                 <button class="ra-continue-btn hidden" onclick="sendContinue()">Continue</button>
               </div>
               <div class="block-stage pending" data-substage="practice">
@@ -1157,6 +1191,7 @@
                   </svg>
                 </div>
                 RA Q&A
+                <button class="ra-replay-btn hidden" onclick="sendReplay()">Replay</button>
                 <button class="ra-continue-btn hidden" onclick="sendContinue()">Continue</button>
               </div>
               <div class="block-stage pending" data-substage="practice">
@@ -1406,6 +1441,33 @@
 
       state.isRaWaiting = false;
       updateControlButtons();
+    }
+
+    // Send a specific key to the experiment
+    function sendKey(key) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(JSON.stringify({
+        type: 'control_command',
+        action: 'send_key',
+        key: key,
+        timestamp: Date.now()
+      }));
+    }
+
+    // Replay audio instructions (sends 'r' key)
+    function sendReplay() {
+      sendKey('r');
+    }
+
+    // Skip current trial (sends 'r' key)
+    function skipTrial() {
+      sendKey('r');
+    }
+
+    // Continue for nature instructions (sends 'n' key)
+    function sendNatureContinue() {
+      sendKey('n');
     }
 
     function updateControlButtons() {
@@ -1822,6 +1884,13 @@
         setStageCompleted('setup');
         setStageCompleted('instructions');
         setStageActive('nature');
+        // Show/hide nature continue button
+        const natureContinueBtn = document.getElementById('nature-continue-btn');
+        if (task === 'nature_instructions') {
+          natureContinueBtn.classList.remove('hidden');
+        } else {
+          natureContinueBtn.classList.add('hidden');
+        }
         if (task === 'nature_video_dial') {
           state.isRecording = true;
           document.getElementById('live-indicator').classList.remove('hidden');
@@ -1867,6 +1936,9 @@
       state.currentBlock = blockNum;
       state.currentBlockType = blockType;
       state.blocks[blockNum].type = blockType;
+
+      // Hide nature continue button when moving to blocks
+      document.getElementById('nature-continue-btn').classList.add('hidden');
 
       // Mark previous stages complete
       setStageCompleted('equipment');
@@ -2082,16 +2154,19 @@
         stage.classList.remove('active', 'completed');
         stage.classList.add('pending');
 
-        // Hide all continue buttons first
+        // Hide all RA buttons first
         const continueBtn = stage.querySelector('.ra-continue-btn');
+        const replayBtn = stage.querySelector('.ra-replay-btn');
         if (continueBtn) continueBtn.classList.add('hidden');
+        if (replayBtn) replayBtn.classList.add('hidden');
 
         if (stageType === substage) {
           stage.classList.remove('pending');
           stage.classList.add('active');
-          // Show continue button if this is ra_wait
-          if (stageType === 'ra_wait' && continueBtn) {
-            continueBtn.classList.remove('hidden');
+          // Show RA buttons if this is ra_wait
+          if (stageType === 'ra_wait') {
+            if (continueBtn) continueBtn.classList.remove('hidden');
+            if (replayBtn) replayBtn.classList.remove('hidden');
           }
         }
       });
@@ -2105,9 +2180,11 @@
       if (stage) {
         stage.classList.remove('pending', 'active');
         stage.classList.add('completed');
-        // Hide continue button when completed
+        // Hide RA buttons when completed
         const continueBtn = stage.querySelector('.ra-continue-btn');
+        const replayBtn = stage.querySelector('.ra-replay-btn');
         if (continueBtn) continueBtn.classList.add('hidden');
+        if (replayBtn) replayBtn.classList.add('hidden');
       }
     }
 
