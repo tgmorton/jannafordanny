@@ -681,7 +681,7 @@ class VideoDialRatingPlugin {
       e.stopPropagation();
 
       // Optimized for Windows with physical dial
-      const scrollDirection = e.deltaY > 0 ? 1 : -1;
+      const scrollDirection = e.deltaY > 0 ? -1 : 1;
       const newValue = this.currentValue + (scrollDirection * this.scrollStep);
       this.updateDialValue(newValue);
 

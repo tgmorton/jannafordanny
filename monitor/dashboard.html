@@ -313,6 +313,26 @@
       font-weight: 500;
     }
 
+    .ra-continue-btn {
+      margin-left: auto;
+      padding: 4px 12px;
+      background: var(--warning);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .ra-continue-btn:hover {
+      background: #856100;
+    }
+
+    .ra-continue-btn.hidden {
+      display: none;
+    }
+
     /* Instruction Containers (for timeline) */
     .instruction-container {
       background: var(--card-bg);
@@ -887,10 +907,6 @@
           <span id="session-pause-icon">⏸</span>
           <span id="session-pause-text">Pause Session</span>
         </button>
-        <button class="control-btn continue-btn hidden" id="continue-btn" onclick="sendContinue()">
-          <span>▶</span>
-          <span>Continue</span>
-        </button>
       </div>
       <div class="status">
         <div class="status-dot" id="status-dot"></div>
@@ -906,7 +922,7 @@
     ⏹ VIDEO PAUSED
   </div>
   <div class="status-indicator ra-waiting hidden" id="ra-waiting-indicator">
-    👋 RA NEEDED - Click Continue when ready
+    👋 RA NEEDED - Click Continue below when ready
   </div>
 
   <div id="waiting" class="waiting">
@@ -1033,6 +1049,7 @@
                   </svg>
                 </div>
                 RA Q&A
+                <button class="ra-continue-btn hidden" onclick="sendContinue()">Continue</button>
               </div>
               <div class="block-stage pending" data-substage="practice">
                 <div class="stage-icon">
@@ -1086,6 +1103,7 @@
                   </svg>
                 </div>
                 RA Q&A
+                <button class="ra-continue-btn hidden" onclick="sendContinue()">Continue</button>
               </div>
               <div class="block-stage pending" data-substage="practice">
                 <div class="stage-icon">
@@ -1139,6 +1157,7 @@
                   </svg>
                 </div>
                 RA Q&A
+                <button class="ra-continue-btn hidden" onclick="sendContinue()">Continue</button>
               </div>
               <div class="block-stage pending" data-substage="practice">
                 <div class="stage-icon">
@@ -1400,7 +1419,6 @@
       const videoText = document.getElementById('video-pause-text');
       const videoIndicator = document.getElementById('video-paused-indicator');
 
-      const continueBtn = document.getElementById('continue-btn');
       const raIndicator = document.getElementById('ra-waiting-indicator');
 
       // Session pause button
@@ -1429,12 +1447,10 @@
         videoIndicator.classList.add('hidden');
       }
 
-      // Continue button and RA indicator
+      // RA indicator (button is now inline in the timeline)
       if (state.isRaWaiting) {
-        continueBtn.classList.remove('hidden');
         raIndicator.classList.remove('hidden');
       } else {
-        continueBtn.classList.add('hidden');
         raIndicator.classList.add('hidden');
       }
     }
@@ -2066,9 +2082,17 @@
         stage.classList.remove('active', 'completed');
         stage.classList.add('pending');
 
+        // Hide all continue buttons first
+        const continueBtn = stage.querySelector('.ra-continue-btn');
+        if (continueBtn) continueBtn.classList.add('hidden');
+
         if (stageType === substage) {
           stage.classList.remove('pending');
           stage.classList.add('active');
+          // Show continue button if this is ra_wait
+          if (stageType === 'ra_wait' && continueBtn) {
+            continueBtn.classList.remove('hidden');
+          }
         }
       });
     }
@@ -2081,6 +2105,9 @@
       if (stage) {
         stage.classList.remove('pending', 'active');
         stage.classList.add('completed');
+        // Hide continue button when completed
+        const continueBtn = stage.querySelector('.ra-continue-btn');
+        if (continueBtn) continueBtn.classList.add('hidden');
       }
     }
 

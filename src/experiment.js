@@ -28,6 +28,17 @@ export async function run({
   title,
   version,
 }) {
+  // === Service Worker Registration for Asset Caching ===
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js')
+      .then((registration) => {
+        console.log('[Experiment] Service Worker registered:', registration.scope);
+      })
+      .catch((error) => {
+        console.warn('[Experiment] Service Worker registration failed:', error);
+      });
+  }
+
   // === Progress Monitor Setup (opt-in via ?monitor= URL param) ===
   let monitorUrl;
   if (typeof jatos !== "undefined" && jatos.urlQueryParameters) {
@@ -131,10 +142,10 @@ export async function run({
             }
             sendMonitorUpdate({ type: "status_update", status: "video_resumed" });
           } else if (message.action === "continue") {
-            // Remote continue - simulate 'n' keypress for RA wait screens
+            // Remote continue - simulate 'm' keypress for RA wait screens
             console.log("Monitor: Remote continue triggered");
-            jsPsych.pluginAPI.keyDown("n");
-            jsPsych.pluginAPI.keyUp("n");
+            jsPsych.pluginAPI.keyDown("m");
+            jsPsych.pluginAPI.keyUp("m");
             sendMonitorUpdate({ type: "status_update", status: "continued" });
           }
         }
@@ -323,7 +334,7 @@ export async function run({
     var handleWheel = function (e) {
       e.preventDefault();
       e.stopPropagation();
-      var scrollDirection = e.deltaY > 0 ? 1 : -1;
+      var scrollDirection = e.deltaY > 0 ? -1 : 1;
       updateThermometer(currentValue + scrollDirection * 0.5);
     };
 
@@ -859,8 +870,8 @@ export async function run({
       var handleWheel = function (e) {
         e.preventDefault();
         e.stopPropagation();
-        // Counter-clockwise on physical dial (positive deltaY) = clockwise on screen = increase value
-        var scrollDirection = e.deltaY > 0 ? 1 : -1;
+        // Optimized for Windows with physical dial
+        var scrollDirection = e.deltaY > 0 ? -1 : 1;
         var newValue = currentValue + scrollDirection * scrollStep;
         updateDial(newValue);
       };
@@ -1169,8 +1180,8 @@ export async function run({
       var handleWheel = function (e) {
         e.preventDefault();
         e.stopPropagation();
-        // Counter-clockwise on physical dial (positive deltaY) = clockwise on screen = increase value
-        var scrollDirection = e.deltaY > 0 ? 1 : -1;
+        // Optimized for Windows with physical dial
+        var scrollDirection = e.deltaY > 0 ? -1 : 1;
         var newValue = currentValue + scrollDirection * scrollStep;
         updateDial(newValue);
       };
@@ -1354,6 +1365,20 @@ export async function run({
       updateUnderline(currentTime);
     });
 
+    // Prevent wheel events from scrolling during audio (dial should not interfere)
+    var preventWheel = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener("wheel", preventWheel, { passive: false });
+    window.addEventListener("wheel", preventWheel, { passive: false });
+
+    // Clean up wheel prevention when audio ends
+    audioElement.addEventListener("ended", function () {
+      document.removeEventListener("wheel", preventWheel);
+      window.removeEventListener("wheel", preventWheel);
+    });
+
     // Initialize the script display
     initializeScript();
   }
@@ -1439,9 +1464,6 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus: function () {
           const monitorConnected = monitorSocket && monitorSocket.readyState === WebSocket.OPEN;
-          const skipInstruction = monitorConnected
-            ? "(RA: Press <strong>N</strong> when the Q&A session is complete, or press <strong>R</strong> to repeat the audio instructions)"
-            : "(Press <strong>R</strong> to skip RA wait - monitor not connected)";
           return `
           <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
             <div style="text-align: center; max-width: 700px;">
@@ -1454,14 +1476,12 @@ export async function run({
               <p style="font-size: 20px; color: #666; margin-bottom: 40px;">
                 Please wait here until the RA arrives.
               </p>
-              <p style="font-size: 16px; color: #999; font-style: italic;">
-                ${skipInstruction}
-              </p>
+              ${!monitorConnected ? '<p style="font-size: 16px; color: #999; font-style: italic;">(Press <strong>R</strong> to skip RA wait - monitor not connected)</p>' : ''}
             </div>
           </div>
         `;
         },
-        choices: ["n", "N", "r", "R"],
+        choices: ["m", "M", "r", "R"],
         data: { task: "ra_wait", condition: "neutral" },
         on_finish: function (data) {
           // Check if R was pressed to repeat audio (only if monitor connected)
@@ -1548,9 +1568,6 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus: function () {
           const monitorConnected = monitorSocket && monitorSocket.readyState === WebSocket.OPEN;
-          const skipInstruction = monitorConnected
-            ? "(RA: Press <strong>N</strong> when the Q&A session is complete, or press <strong>R</strong> to repeat the audio instructions)"
-            : "(Press <strong>R</strong> to skip RA wait - monitor not connected)";
           return `
           <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
             <div style="text-align: center; max-width: 700px;">
@@ -1563,14 +1580,12 @@ export async function run({
               <p style="font-size: 20px; color: #666; margin-bottom: 40px;">
                 Please wait here until the RA arrives.
               </p>
-              <p style="font-size: 16px; color: #999; font-style: italic;">
-                ${skipInstruction}
-              </p>
+              ${!monitorConnected ? '<p style="font-size: 16px; color: #999; font-style: italic;">(Press <strong>R</strong> to skip RA wait - monitor not connected)</p>' : ''}
             </div>
           </div>
         `;
         },
-        choices: ["n", "N", "r", "R"],
+        choices: ["m", "M", "r", "R"],
         data: { task: "ra_wait", condition: "participatory" },
         on_finish: function (data) {
           const monitorConnected = monitorSocket && monitorSocket.readyState === WebSocket.OPEN;
@@ -1655,9 +1670,6 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus: function () {
           const monitorConnected = monitorSocket && monitorSocket.readyState === WebSocket.OPEN;
-          const skipInstruction = monitorConnected
-            ? "(RA: Press <strong>N</strong> when the Q&A session is complete, or press <strong>R</strong> to repeat the audio instructions)"
-            : "(Press <strong>R</strong> to skip RA wait - monitor not connected)";
           return `
           <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
             <div style="text-align: center; max-width: 700px;">
@@ -1670,14 +1682,12 @@ export async function run({
               <p style="font-size: 20px; color: #666; margin-bottom: 40px;">
                 Please wait here until the RA arrives.
               </p>
-              <p style="font-size: 16px; color: #999; font-style: italic;">
-                ${skipInstruction}
-              </p>
+              ${!monitorConnected ? '<p style="font-size: 16px; color: #999; font-style: italic;">(Press <strong>R</strong> to skip RA wait - monitor not connected)</p>' : ''}
             </div>
           </div>
         `;
         },
-        choices: ["n", "N", "r", "R"],
+        choices: ["m", "M", "r", "R"],
         data: { task: "ra_wait", condition: "observatory" },
         on_finish: function (data) {
           const monitorConnected = monitorSocket && monitorSocket.readyState === WebSocket.OPEN;
