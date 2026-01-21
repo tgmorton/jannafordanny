@@ -1,7 +1,7 @@
 /**
  * @title Video Viewing Study
  * @description Video viewing and emotion regulation study
- * @version 3.3.2
+ * @version 3.3.4
  *
  * @assets assets/
  */
@@ -368,7 +368,7 @@ export async function run({
         "red",
       );
     },
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "rating", rating_type: "arousal" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -395,7 +395,7 @@ export async function run({
         "red",
       );
     },
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "rating", rating_type: "pleasure" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -422,7 +422,7 @@ export async function run({
         "blue",
       );
     },
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "rating", rating_type: "distraction" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -449,7 +449,7 @@ export async function run({
         "red",
       );
     },
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "rating", rating_type: "immersion" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -604,7 +604,7 @@ export async function run({
         </div>
       `;
     },
-    choices: ["Enter", "n", "N"],
+    choices: ["Enter", "n", "N", "r", "R"],
     data: { task: "pid_confirmation" },
   };
 
@@ -636,7 +636,7 @@ export async function run({
   var welcome = {
     type: HtmlKeyboardResponsePlugin,
     stimulus: "<h1 style='font-size: 36px !important;'>Experiment</h1>",
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
   };
 
   // Nature video instructions
@@ -654,7 +654,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "nature_instructions" },
     on_start: function () {
       sendMonitorUpdate({
@@ -677,7 +677,7 @@ export async function run({
   var nature_video = {
     type: VideoKeyboardResponsePlugin,
     stimulus: ["assets/nature.mp4"],
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     prompt: null,
     width: 1000,
     height: 750,
@@ -761,7 +761,7 @@ export async function run({
       <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 40px;">
         <h1 style="font-size: 36px; font-weight: bold; margin-bottom: 30px; color: #2c3e50;">Dial Calibration</h1>
         <p style="font-size: 22px; color: #555; margin-bottom: 40px; text-align: center; max-width: 600px;">
-          Turn the dial until the arrow <strong>points straight up</strong>
+          Orient the dial triangle <strong>north, towards the cord</strong>
         </p>
 
         <!-- Target indicator: solid black circle with white triangle at top -->
@@ -773,11 +773,11 @@ export async function run({
         </svg>
 
         <p style="font-size: 18px; color: #888; margin-top: 40px;">
-          When the arrow points up, <strong>click the dial button</strong> to continue
+          When the triangle points north towards the cord, <strong>click the dial button</strong> to continue
         </p>
       </div>
     `,
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "dial_calibration" },
     on_start: function () {
       sendMonitorUpdate({
@@ -846,7 +846,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "dial_instructions" },
     on_load: function () {
       // Make the dial interactive with wheel input
@@ -973,7 +973,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "study_overview" },
     on_start: function () {
       sendMonitorUpdate({
@@ -1080,11 +1080,11 @@ export async function run({
               <p style="font-size: 18px; font-weight: bold; margin: 0 0 10px 0;">When ready:</p>
               <ol style="font-size: 18px; margin: 0; padding-left: 25px; line-height: 1.8;">
                 <li>Turn the dial until the arrow <strong>points straight up (to 5)</strong></li>
-                <li><strong>Click the dial button</strong> to continue</li>
+                <li><strong>Let the RA know</strong> when you are ready to continue</li>
               </ol>
             </div>
             <p style="font-size: 16px; color: #999; font-style: italic;">
-              (RA: If the dial is not responding, please check the equipment before continuing)
+              (RA: Click "Continue" on the monitor when ready to proceed)
             </p>
           </div>
           <div style="flex-shrink: 0; text-align: center;">
@@ -1149,7 +1149,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["n", "N"],
+    choices: ["r", "R"],
     data: { task: "dial_test" },
     on_start: function () {
       sendMonitorUpdate({
@@ -1195,20 +1195,16 @@ export async function run({
       document.addEventListener("wheel", handleWheel, { passive: false });
       window.addEventListener("wheel", handleWheel, { passive: false });
 
-      // Persist dial value when proceeding (click is handled globally)
-      var clickHandler = function (e) {
-        if (e.button === 0) {
-          window.__dialPersistedValue = currentValue;
-          console.log("Dial test complete, persisted value:", currentValue);
-        }
-      };
-      document.addEventListener("click", clickHandler);
+      // Store reference to currentValue for cleanup (click no longer advances - only 'r' key does)
+      window._dialTestCurrentValue = function() { return currentValue; };
 
       // Store cleanup function
       window._dialTestCleanup = function () {
         document.removeEventListener("wheel", handleWheel);
         window.removeEventListener("wheel", handleWheel);
-        document.removeEventListener("click", clickHandler);
+        // Persist dial value when cleaning up (triggered by 'r' key press)
+        window.__dialPersistedValue = window._dialTestCurrentValue();
+        console.log("Dial test complete, persisted value:", window.__dialPersistedValue);
       };
 
       // Initialize dial position - use persisted value if available
@@ -1502,7 +1498,7 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus:
           '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
-        choices: ["n", "N"],
+        choices: ["n", "N", "r", "R"],
         data: { task: "practice_intro", condition: "neutral" },
       },
       practice_video: {
@@ -1623,7 +1619,7 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus:
           '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
-        choices: ["n", "N"],
+        choices: ["n", "N", "r", "R"],
         data: { task: "practice_intro", condition: "participatory" },
       },
       practice_video: {
@@ -1742,7 +1738,7 @@ export async function run({
         type: HtmlKeyboardResponsePlugin,
         stimulus:
           '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
-        choices: ["n", "N"],
+        choices: ["n", "N", "r", "R"],
         data: { task: "practice_intro", condition: "observatory" },
       },
       practice_video: {
@@ -1875,7 +1871,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
     data: { task: "break_slide" },
   };
 
@@ -2097,7 +2093,7 @@ export async function run({
   var end_screen = {
     type: HtmlKeyboardResponsePlugin,
     stimulus: "<h1>Experiment Complete</h1><p>Thank you for participating!</p>",
-    choices: ["n", "N"],
+    choices: ["n", "N", "r", "R"],
   };
   timeline.push(end_screen);
 

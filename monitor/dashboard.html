@@ -979,7 +979,10 @@
               </svg>
             </div>
             <div class="timeline-content">
-              <div class="timeline-label">Equipment Setup</div>
+              <div class="timeline-label">
+                Equipment Setup
+                <button class="nature-continue-btn hidden" id="dial-test-continue-btn" onclick="sendDialTestContinue()">Continue</button>
+              </div>
               <div class="timeline-sublabel">Audio & dial calibration</div>
             </div>
           </div>
@@ -1470,6 +1473,11 @@
       sendKey('n');
     }
 
+    // Continue for dial test (sends 'r' key)
+    function sendDialTestContinue() {
+      sendKey('r');
+    }
+
     function updateControlButtons() {
       const sessionBtn = document.getElementById('session-pause-btn');
       const sessionIcon = document.getElementById('session-pause-icon');
@@ -1872,7 +1880,16 @@
 
       if (task === 'audio_test' || task === 'dial_calibration' || task === 'dial_test') {
         setStageActive('equipment');
+        // Show/hide dial test continue button
+        const dialTestContinueBtn = document.getElementById('dial-test-continue-btn');
+        if (task === 'dial_test') {
+          dialTestContinueBtn.classList.remove('hidden');
+        } else {
+          dialTestContinueBtn.classList.add('hidden');
+        }
       } else if (task === 'pid_entry' || task === 'fullscreen') {
+        // Hide dial test continue button when leaving equipment stage
+        document.getElementById('dial-test-continue-btn').classList.add('hidden');
         setStageCompleted('equipment');
         setStageActive('setup');
       } else if (task === 'dial_instructions' || task === 'study_overview') {
