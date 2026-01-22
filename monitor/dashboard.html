@@ -1098,6 +1098,13 @@
             </div>
             <div class="video-list" id="block1-videos"></div>
           </div>
+          <!-- Break after Block 1 -->
+          <div class="break-section hidden" id="break1-section">
+            <div class="timeline-sublabel" style="margin-left: 40px; margin-top: 8px;">
+              Break Time
+              <button class="nature-continue-btn break-continue-btn hidden" onclick="sendBreakContinue()">Continue</button>
+            </div>
+          </div>
         </div>
 
         <!-- Block 2 -->
@@ -1152,6 +1159,13 @@
               </div>
             </div>
             <div class="video-list" id="block2-videos"></div>
+          </div>
+          <!-- Break after Block 2 -->
+          <div class="break-section hidden" id="break2-section">
+            <div class="timeline-sublabel" style="margin-left: 40px; margin-top: 8px;">
+              Break Time
+              <button class="nature-continue-btn break-continue-btn hidden" onclick="sendBreakContinue()">Continue</button>
+            </div>
           </div>
         </div>
 
@@ -1463,19 +1477,24 @@
       sendKey('r');
     }
 
-    // Skip current trial (sends 'r' key)
+    // Skip current trial (sends 'Escape' key)
     function skipTrial() {
-      sendKey('r');
+      sendKey('Escape');
     }
 
-    // Continue for nature instructions (sends 'n' key)
+    // Continue for nature instructions (sends 'm' key - RA only)
     function sendNatureContinue() {
-      sendKey('n');
+      sendKey('m');
     }
 
-    // Continue for dial test (sends 'r' key)
+    // Continue for dial test (sends 'Escape' key)
     function sendDialTestContinue() {
-      sendKey('r');
+      sendKey('Escape');
+    }
+
+    // Continue for break slide (sends 'm' key - RA only)
+    function sendBreakContinue() {
+      sendKey('m');
     }
 
     function updateControlButtons() {
@@ -1673,6 +1692,15 @@
     function handleInstructionComplete(instruction, rt) {
       const rtFormatted = rt ? `${(rt / 1000).toFixed(1)}s` : '';
 
+      // Hide break continue buttons when break is complete
+      if (instruction === 'Break Time') {
+        document.querySelectorAll('.break-continue-btn').forEach(btn => {
+          btn.classList.add('hidden');
+        });
+        state.isRaWaiting = false;
+        updateControlButtons();
+      }
+
       // Find the instruction element and mark as completed with RT
       if (currentInstructionElement && currentInstructionElement.dataset.instruction === instruction) {
         currentInstructionElement.classList.remove('active');
@@ -1802,10 +1830,9 @@
       // Show pause button
       showControlButtons();
 
-      // Mark equipment and setup as completed, instructions as active
-      setStageCompleted('equipment');
+      // Mark setup as completed, equipment as active (since PID now comes before equipment tests)
       setStageCompleted('setup');
-      setStageActive('instructions');
+      setStageActive('equipment');
     }
 
     function updateStage(stage, substage, blockNum, blockType) {
@@ -1930,6 +1957,20 @@
       } else if (task === 'condition_instructions') {
         // After practice, before main videos
         handleBlockStage(block, 'videos');
+      } else if (task === 'break_slide') {
+        // Break time between blocks - show break sections and continue buttons
+        // Determine which block just completed (1 or 2) based on current state
+        const completedBlock = state.currentBlock || 1;
+        const breakSection = document.getElementById(`break${completedBlock}-section`);
+        if (breakSection) {
+          breakSection.classList.remove('hidden');
+        }
+        document.querySelectorAll('.break-continue-btn').forEach(btn => {
+          btn.classList.remove('hidden');
+        });
+        // Show RA waiting indicator
+        state.isRaWaiting = true;
+        updateControlButtons();
       }
 
       // Update current video display

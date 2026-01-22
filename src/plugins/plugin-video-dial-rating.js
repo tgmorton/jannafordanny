@@ -456,7 +456,14 @@ class VideoDialRatingPlugin {
   waitForDialCentering(trial) {
     console.log("Waiting for dial centering...");
 
+    // Flag to prevent double-triggering
+    let hasConfirmed = false;
+
     const confirmCentering = () => {
+      // Prevent double-triggering
+      if (hasConfirmed) return;
+      hasConfirmed = true;
+
       // Remove both listeners
       document.removeEventListener("keydown", keyHandler);
       document.removeEventListener("mousedown", clickHandler);
@@ -488,7 +495,7 @@ class VideoDialRatingPlugin {
       }
 
       // Start the countdown after a brief delay to prevent accidental skip
-      setTimeout(() => this.startCountdown(trial), 100);
+      setTimeout(() => this.startCountdown(trial), 300);
     };
 
     const keyHandler = (e) => {
@@ -513,7 +520,7 @@ class VideoDialRatingPlugin {
       this.centeringKeyHandler = keyHandler;
       this.centeringClickHandler = clickHandler;
       console.log("Centering handlers attached");
-    }, 300);
+    }, 500);
   }
 
   startCountdown(trial) {
@@ -696,9 +703,9 @@ class VideoDialRatingPlugin {
       }
     };
 
-    // Skip key handler (R only - for RA use) and debug toggle
+    // Skip key handler (Escape only - for RA use) and debug toggle
     const keyHandler = (e) => {
-      if (e.key === "r" || e.key === "R") {
+      if (e.key === "Escape") {
         e.preventDefault();
         this.endTrial(trial);
       }

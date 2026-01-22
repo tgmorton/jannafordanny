@@ -28,15 +28,14 @@ export async function run({
   title,
   version,
 }) {
-  // === Service Worker Registration for Asset Caching ===
+  // Clean up any existing service workers
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js')
-      .then((registration) => {
-        console.log('[Experiment] Service Worker registered:', registration.scope);
-      })
-      .catch((error) => {
-        console.warn('[Experiment] Service Worker registration failed:', error);
-      });
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(r => r.unregister());
+    });
+    if ('caches' in window) {
+      caches.keys().then(names => names.forEach(name => caches.delete(name)));
+    }
   }
 
   // === Progress Monitor Setup (opt-in via ?monitor= URL param) ===
@@ -649,12 +648,12 @@ export async function run({
             You will now watch a nature video. Take this moment to get comfortable, relax your shoulders, breathe normally, and simply watch the video.
           </p>
           <p style="font-size: 16px; color: #888; margin-top: 30px;">
-            Press the <strong>button dial</strong> to continue.
+            Please wait for the <strong>Research Assistant</strong>.
           </p>
         </div>
       </div>
     `,
-    choices: ["n", "N", "r", "R"],
+    choices: ["m", "M"],
     data: { task: "nature_instructions" },
     on_start: function () {
       sendMonitorUpdate({
@@ -1149,7 +1148,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["r", "R"],
+    choices: ["Escape"],
     data: { task: "dial_test" },
     on_start: function () {
       sendMonitorUpdate({
@@ -1229,12 +1228,12 @@ export async function run({
     },
   };
 
-  // Build timeline - removed fullscreen entry, now starts with preload and equipment tests
+  // Build timeline - removed fullscreen entry, now starts with preload, PID entry, then equipment tests
   timeline.push(preload);
+  timeline.push(pid_loop);
   timeline.push(audio_test);
   timeline.push(dial_calibration);
   timeline.push(dial_test);
-  timeline.push(pid_loop);
 
   // Add study overview explaining RA involvement
   timeline.push(study_overview);
@@ -1847,7 +1846,7 @@ export async function run({
     },
   };
 
-  // Break slide - shown after first block
+  // Break slide - shown after each block except last (RA-controlled only)
   var break_slide = {
     type: HtmlKeyboardResponsePlugin,
     stimulus: `
@@ -1866,13 +1865,28 @@ export async function run({
             Please remember to avoid using your cellphone during your break.
           </p>
           <p style="font-size: 16px; color: #999; margin-top: 40px; font-style: italic;">
-            (RA: Press <strong>N</strong> when the participant is ready to continue)
+            Please wait for the Research Assistant.
           </p>
         </div>
       </div>
     `,
-    choices: ["n", "N", "r", "R"],
+    choices: ["m", "M"],
     data: { task: "break_slide" },
+    on_start: function () {
+      sendMonitorUpdate({
+        type: "trial_update",
+        task: "break_slide",
+        instruction: "Break Time",
+      });
+    },
+    on_finish: function (data) {
+      sendMonitorUpdate({
+        type: "instruction_complete",
+        task: "break_slide",
+        instruction: "Break Time",
+        rt: data.rt,
+      });
+    },
   };
 
   // Add each block
@@ -2083,8 +2097,8 @@ export async function run({
     console.log("First video stimulus:", blockVideoStimuli[0]);
     timeline.push(video_procedure);
 
-    // Add break slide after the first block (index 0)
-    if (b === 0) {
+    // Add break slide after each block except the last one
+    if (b < blocks.length - 1) {
       timeline.push(break_slide);
     }
   }
