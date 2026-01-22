@@ -42,7 +42,7 @@ const info = {
     /** Starting value of the dial */
     dial_start: {
       type: ParameterType.INT,
-      default: 0,
+      default: 5,
     },
     /** Sampling rate in milliseconds */
     sample_rate_ms: {
@@ -349,7 +349,7 @@ class VideoDialRatingPlugin {
           <div id="video-container">
             <div id="video-overlay">
               <div id="overlay-phase">centering</div>
-              <div id="overlay-text">Turn the dial until the arrow points to 0</div>
+              <div id="overlay-text">Turn the dial until the arrow points to 5</div>
               <div id="overlay-instruction">Click the dial button when ready</div>
               <div id="countdown-number" style="display: none;">${trial.countdown_duration}</div>
             </div>
@@ -499,7 +499,7 @@ class VideoDialRatingPlugin {
     };
 
     const keyHandler = (e) => {
-      if (e.key === "n" || e.key === "N") {
+      if (e.key === "Enter") {
         e.preventDefault();
         confirmCentering();
       }
@@ -705,7 +705,8 @@ class VideoDialRatingPlugin {
 
     // Skip key handler (Escape only - for RA use) and debug toggle
     const keyHandler = (e) => {
-      if (e.key === "Escape") {
+      // R or Escape to skip video
+      if (e.key === "Escape" || e.key === "r" || e.key === "R") {
         e.preventDefault();
         this.endTrial(trial);
       }

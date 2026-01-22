@@ -1,7 +1,7 @@
 /**
  * @title Video Viewing Study
  * @description Video viewing and emotion regulation study
- * @version 3.3.4
+ * @version 3.3.5
  *
  * @assets assets/
  */
@@ -179,10 +179,10 @@ export async function run({
   document.addEventListener("mousedown", function (e) {
     if (e.button === 0) {
       // Primary mouse button only
-      console.log("Click detected, simulating 'n' keypress via jsPsych");
+      console.log("Click detected, simulating 'Enter' keypress via jsPsych");
       // Use jsPsych's built-in key simulation
-      jsPsych.pluginAPI.keyDown("n");
-      jsPsych.pluginAPI.keyUp("n");
+      jsPsych.pluginAPI.keyDown("Enter");
+      jsPsych.pluginAPI.keyUp("Enter");
     }
   });
 
@@ -232,11 +232,10 @@ export async function run({
   // ============================================================
 
   var THERM = {
-    SCALE_WIDTH: 480,
-    SCALE_ORIGIN: 90,
-    TRACK_START: 70,
-    FILL_BASE: 20,
-    PIXELS_PER_UNIT: 48,
+    TRACK_HEIGHT: 400,
+    TRACK_WIDTH: 50,
+    PIXELS_PER_UNIT: 40, // 400px / 10 units = 40px per unit
+    START_VALUE: 5,
   };
 
   function createThermometerRatingHTML(question, instruction, color) {
@@ -247,90 +246,119 @@ export async function run({
         : "radial-gradient(circle at 30% 30%, #e74c3c, #c0392b, #a93226)";
     var darkColor = color === "blue" ? "#2980b9" : "#a93226";
 
-    // Generate ticks: 21 ticks at positions 0, 24, 48, ... 480
-    var ticksHTML = "";
-    for (var i = 0; i <= 20; i++) {
-      var x = i * 24; // SCALE_WIDTH / 20 = 24
-      var isMajor = i % 2 === 0;
-      var height = isMajor ? 16 : 10;
-      var width = isMajor ? 2 : 1;
-      var bgColor = isMajor ? "#333" : "#999";
-      ticksHTML +=
-        '<div style="position: absolute; left: ' +
-        x +
-        "px; top: 0; width: " +
-        width +
-        "px; height: " +
-        height +
-        "px; background: " +
-        bgColor +
-        '; transform: translateX(-50%);"></div>';
-    }
-
-    // Generate numbers: 11 numbers at positions 0, 48, 96, ... 480
-    var numbersHTML = "";
-    for (var i = 0; i <= 10; i++) {
-      var x = i * 48; // PIXELS_PER_UNIT = 48
-      numbersHTML +=
-        '<span style="position: absolute; left: ' +
-        x +
-        'px; transform: translateX(-50%); font-size: 15px; font-weight: 600; color: #444;">' +
+    // Generate vertical labels (10 at top, 0 at bottom)
+    // Each label spaced 40px apart (TRACK_HEIGHT / 10 = 40)
+    var labelsHTML = "";
+    for (var i = 10; i >= 0; i--) {
+      var topPos = (10 - i) * THERM.PIXELS_PER_UNIT;
+      var isCurrent = i === THERM.START_VALUE;
+      var fontWeight = isCurrent ? "bold" : "normal";
+      var fontSize = isCurrent ? "18px" : "15px";
+      labelsHTML +=
+        '<span style="position: absolute; right: 8px; top: ' +
+        topPos +
+        'px; transform: translateY(-50%); font-size: ' +
+        fontSize +
+        "; font-weight: " +
+        fontWeight +
+        '; color: #444;">' +
         i +
         "</span>";
     }
 
-    // Initial fill width for value 0: 20 + 0*48 = 20px
-    var initialFillWidth = THERM.FILL_BASE + 0 * THERM.PIXELS_PER_UNIT;
+    // Generate ticks: major ticks at integers (0-10), minor ticks at half values
+    var ticksHTML = "";
+    for (var i = 0; i <= 20; i++) {
+      var topPos = (20 - i) * (THERM.PIXELS_PER_UNIT / 2); // Half increments
+      var isMajor = i % 2 === 0;
+      var tickWidth = isMajor ? 12 : 8;
+      var tickHeight = isMajor ? 3 : 2;
+      var tickColor = isMajor ? "#666" : "#999";
+      ticksHTML +=
+        '<div style="position: absolute; right: 0; top: ' +
+        topPos +
+        "px; width: " +
+        tickWidth +
+        "px; height: " +
+        tickHeight +
+        "px; background: " +
+        tickColor +
+        '; transform: translateY(-50%);"></div>';
+    }
+
+    // Initial fill height for value 5: 5 * 40px = 200px
+    var initialFillHeight = THERM.START_VALUE * THERM.PIXELS_PER_UNIT;
 
     return `
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; padding: 40px;">
-        <div style="text-align: center; max-width: 800px; margin-bottom: 40px;">
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; gap: 60px; padding: 40px;">
+
+        <!-- LEFT: Question and Instructions -->
+        <div style="max-width: 500px; text-align: left;">
           <p style="font-size: 26px; font-weight: bold; line-height: 1.4; margin-bottom: 20px; color: #222;">
             ${question}
           </p>
-          <p style="font-size: 18px; line-height: 1.6; color: #555;">
+          <p style="font-size: 20px; line-height: 1.6; color: #555;">
             ${instruction}
+          </p>
+          <p style="font-size: 18px; color: #888; margin-top: 30px;">
+            Turn the dial to adjust your rating, then <strong>click the dial button</strong> to submit.
           </p>
         </div>
 
-        <!-- Thermometer: 600px wide container -->
-        <div style="position: relative; width: 600px; height: 130px;">
+        <!-- RIGHT: Vertical Thermometer -->
+        <div style="position: relative; width: 160px; height: 500px;">
 
-          <!-- Bulb: 80px circle at x=0, displays current value -->
-          <div style="position: absolute; left: 0; top: 10px; width: 80px; height: 80px; border-radius: 50%; background: ${bulbGradient}; border: 4px solid ${fillColor}; z-index: 10; box-shadow: inset 0 -5px 15px rgba(0,0,0,0.2);">
-            <span id="thermometer-value" style="position: absolute; top: 80%; left: 50%; transform: translate(-50%, -50%); font-size: 32px; font-weight: bold; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.5);">0</span>
+          <!-- Labels (0-10 on left of track) -->
+          <div style="position: absolute; left: 0; top: 0; width: 35px; height: ${THERM.TRACK_HEIGHT}px;">
+            ${labelsHTML}
           </div>
 
-          <!-- Track: gray bar from x=70 to x=580 (510px wide) -->
-          <div style="position: absolute; left: 70px; top: 28px; width: 510px; height: 44px; background: linear-gradient(to bottom, #f8f8f8, #e8e8e8); border-radius: 0 22px 22px 0; border: 3px solid #ccc; box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);"></div>
+          <!-- Ticks (between labels and track) -->
+          <div style="position: absolute; left: 35px; top: 0; width: 15px; height: ${THERM.TRACK_HEIGHT}px;">
+            ${ticksHTML}
+          </div>
 
-          <!-- Fill: colored bar from x=70, width calculated by formula -->
-          <div id="thermometer-fill" style="position: absolute; left: 70px; top: 28px; width: ${initialFillWidth}px; height: 44px; background: linear-gradient(to bottom, ${fillColor}, ${darkColor}); border-radius: 0 22px 22px 0; border: 3px solid ${fillColor}; border-left: none; transition: width 0.1s ease-out; box-sizing: border-box;"></div>
+          <!-- Track -->
+          <div id="thermometer-track" style="position: absolute; left: 50px; top: 0; width: ${THERM.TRACK_WIDTH}px; height: ${THERM.TRACK_HEIGHT}px;
+                      background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
+                      border: 3px solid #ccc; border-radius: 25px 25px 0 0;
+                      box-shadow: inset 0 2px 6px rgba(0,0,0,0.1); overflow: visible;">
 
-          <!-- Scale: ticks and numbers container at x=90 (where 0 is), width=480 -->
-          <div style="position: absolute; left: 90px; top: 52px; width: 480px; height: 50px;">
-            <!-- Ticks -->
-            <div style="position: absolute; left: 0; right: 0; top: 0; height: 20px;">
-              ${ticksHTML}
-            </div>
-            <!-- Numbers -->
-            <div style="position: absolute; left: 0; right: 0; top: 22px; height: 20px;">
-              ${numbersHTML}
-            </div>
+            <!-- Fill (uses pixel heights: value × 40px) -->
+            <div id="thermometer-fill" style="position: absolute; bottom: 0; left: 0; right: 0;
+                                               height: ${initialFillHeight}px;
+                                               background: linear-gradient(to top, ${fillColor}, ${darkColor});
+                                               border-radius: 0;
+                                               transition: height 0.1s ease-out;"></div>
+
+            <!-- Indicator line (inside track for correct coordinate system) -->
+            <div id="thermometer-indicator" style="position: absolute; left: -12px; right: -12px;
+                                                    bottom: ${initialFillHeight}px; height: 3px;
+                                                    background: #333;
+                                                    border-radius: 2px;
+                                                    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                                                    z-index: 10;"></div>
+          </div>
+
+          <!-- Bulb (below track) -->
+          <div style="position: absolute; left: 37px; top: ${THERM.TRACK_HEIGHT - 5}px; width: 76px; height: 76px;
+                      border-radius: 50%; background: ${bulbGradient}; border: 4px solid ${fillColor};
+                      box-shadow: inset 0 -5px 15px rgba(0,0,0,0.2);">
+            <span id="thermometer-value" style="position: absolute; top: 78%; left: 50%;
+                                                 transform: translate(-50%, -50%);
+                                                 font-size: 28px; font-weight: bold; color: white;
+                                                 text-shadow: 1px 1px 3px rgba(0,0,0,0.5);">${THERM.START_VALUE}</span>
           </div>
         </div>
-
-        <p style="font-size: 16px; color: #888; margin-top: 20px;">
-          Turn the dial to adjust your rating, then <strong>click the dial button</strong> to submit.
-        </p>
       </div>
     `;
   }
 
   // Setup dial interaction for thermometer rating
   function setupThermometerDial() {
-    var currentValue = 0;
+    var currentValue = THERM.START_VALUE; // Start at 5
     var fill = document.getElementById("thermometer-fill");
+    var indicator = document.getElementById("thermometer-indicator");
     var valueDisplay = document.getElementById("thermometer-value");
 
     if (!fill || !valueDisplay) {
@@ -338,13 +366,21 @@ export async function run({
       return;
     }
 
-    // Update fill width using the formula: width = FILL_BASE + value * PIXELS_PER_UNIT
+    // Update fill height using pixels (value × 40px per unit)
     function updateThermometer(value) {
       currentValue = Math.max(0, Math.min(10, value));
       currentValue = Math.round(currentValue * 2) / 2; // Round to nearest 0.5
 
-      var fillWidth = THERM.FILL_BASE + currentValue * THERM.PIXELS_PER_UNIT;
-      fill.style.width = fillWidth + "px";
+      var fillHeight = currentValue * THERM.PIXELS_PER_UNIT; // value × 40px
+
+      fill.style.height = fillHeight + "px";
+      if (indicator) {
+        indicator.style.bottom = fillHeight + "px";
+      }
+
+      // Round top corners only at max value
+      fill.style.borderRadius = (currentValue >= 10) ? "22px 22px 0 0" : "0";
+
       valueDisplay.textContent = currentValue;
       window.__thermometerValue = currentValue;
     }
@@ -366,9 +402,9 @@ export async function run({
       window.removeEventListener("wheel", handleWheel);
     };
 
-    // Initialize
-    window.__thermometerValue = 0;
-    updateThermometer(0);
+    // Initialize at starting value
+    window.__thermometerValue = THERM.START_VALUE;
+    updateThermometer(THERM.START_VALUE);
   }
 
   // Individual rating trials using horizontal thermometer with dial control
@@ -381,7 +417,7 @@ export async function run({
         "red",
       );
     },
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
     data: { task: "rating", rating_type: "arousal" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -408,7 +444,7 @@ export async function run({
         "red",
       );
     },
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
     data: { task: "rating", rating_type: "pleasure" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -435,7 +471,7 @@ export async function run({
         "blue",
       );
     },
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
     data: { task: "rating", rating_type: "distraction" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -462,7 +498,7 @@ export async function run({
         "red",
       );
     },
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
     data: { task: "rating", rating_type: "immersion" },
     on_load: setupThermometerDial,
     on_finish: function (data) {
@@ -598,10 +634,13 @@ export async function run({
       jsPsych.data.addProperties({
         participant_pid: entered_pid,
       });
-      // Send session start to monitor
+      // Send session start to monitor with block order
       sendMonitorUpdate({
         type: "session_start",
         participant_id: entered_pid,
+        block_order: blocks.map(function (b) {
+          return { order: b.blockOrder, type: b.blockType };
+        }),
       });
     },
   };
@@ -617,7 +656,7 @@ export async function run({
         </div>
       `;
     },
-    choices: ["Enter", "n", "N", "r", "R"],
+    choices: ["Enter", "n", "N"],
     data: { task: "pid_confirmation" },
   };
 
@@ -649,19 +688,19 @@ export async function run({
   var welcome = {
     type: HtmlKeyboardResponsePlugin,
     stimulus: "<h1 style='font-size: 36px !important;'>Experiment</h1>",
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
   };
 
   // Nature video instructions
   var nature_instructions = {
     type: HtmlKeyboardResponsePlugin,
     stimulus: `
-      <div style="display: flex; align-items: center; justify-content: center; padding: 40px;">
-        <div style="text-align: center; max-width: 750px;">
-          <p style="font-size: 20px; line-height: 1.6;">
+      <div style="display: flex; align-items: center; justify-content: center; padding: 40px; min-height: 70vh;">
+        <div style="text-align: center; max-width: 850px;">
+          <p style="font-size: 28px; line-height: 1.6;">
             You will now watch a nature video. Take this moment to get comfortable, relax your shoulders, breathe normally, and simply watch the video.
           </p>
-          <p style="font-size: 16px; color: #888; margin-top: 30px;">
+          <p style="font-size: 20px; color: #888; margin-top: 40px;">
             Please wait for the <strong>Research Assistant</strong>.
           </p>
         </div>
@@ -686,11 +725,11 @@ export async function run({
     },
   };
 
-  // Nature video - auto advances when done, can skip with 'n'
+  // Nature video - auto advances when done, can skip with 'r'
   var nature_video = {
     type: VideoKeyboardResponsePlugin,
     stimulus: ["assets/nature.mp4"],
-    choices: ["n", "N", "r", "R"],
+    choices: ["r", "R"],
     prompt: null,
     width: 1000,
     height: 750,
@@ -790,7 +829,7 @@ export async function run({
         </p>
       </div>
     `,
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
     data: { task: "dial_calibration" },
     on_start: function () {
       sendMonitorUpdate({
@@ -859,7 +898,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
     data: { task: "dial_instructions" },
     on_load: function () {
       // Make the dial interactive with wheel input
@@ -986,7 +1025,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
     data: { task: "study_overview" },
     on_start: function () {
       sendMonitorUpdate({
@@ -1162,7 +1201,7 @@ export async function run({
         </div>
       </div>
     `,
-    choices: ["Escape"],
+    choices: ["m", "M"],
     data: { task: "dial_test" },
     on_start: function () {
       sendMonitorUpdate({
@@ -1233,6 +1272,8 @@ export async function run({
         window._dialTestCleanup();
         delete window._dialTestCleanup;
       }
+      // Hide cursor for the rest of the experiment
+      document.body.classList.add("hide-cursor");
       sendMonitorUpdate({
         type: "instruction_complete",
         task: "dial_test",
@@ -1454,7 +1495,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/natural.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Natural Instructions</h2>
-            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
+            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
         choices: ["r", "R"],
@@ -1510,8 +1551,8 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
-        choices: ["n", "N", "r", "R"],
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 18px; text-align: center; line-height: 1.6;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 18px;">Press the <strong>dial button</strong> to continue.</span></p></div>',
+        choices: ["Enter"],
         data: { task: "practice_intro", condition: "neutral" },
       },
       practice_video: {
@@ -1577,7 +1618,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/participate.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Participating Instructions</h2>
-            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
+            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
         choices: ["r", "R"],
@@ -1631,8 +1672,8 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
-        choices: ["n", "N", "r", "R"],
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 18px; text-align: center; line-height: 1.6;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 18px;">Press the <strong>dial button</strong> to continue.</span></p></div>',
+        choices: ["Enter"],
         data: { task: "practice_intro", condition: "participatory" },
       },
       practice_video: {
@@ -1696,7 +1737,7 @@ export async function run({
           <audio id="audio-instruction" autoplay><source src="assets/observe.mp3" type="audio/mpeg"></audio>
           <div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; flex-direction: column;">
             <h2 style="font-size: 28px; text-align: center; color: #333; margin-bottom: 30px;">Observing Instructions</h2>
-            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
+            <div id="script-display" style="width: 85ch; max-width: 95vw; height: 600px; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; padding: 40px; background: #f9f9f9; border-radius: 12px;"></div>
           </div>
         `,
         choices: ["r", "R"],
@@ -1750,8 +1791,8 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 20px; text-align: center;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 16px;">Press the <strong>button dial</strong> to continue.</span></p></div>',
-        choices: ["n", "N", "r", "R"],
+          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 18px; text-align: center; line-height: 1.6;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 18px;">Press the <strong>dial button</strong> to continue.</span></p></div>',
+        choices: ["Enter"],
         data: { task: "practice_intro", condition: "observatory" },
       },
       practice_video: {
@@ -2121,7 +2162,7 @@ export async function run({
   var end_screen = {
     type: HtmlKeyboardResponsePlugin,
     stimulus: "<h1>Experiment Complete</h1><p>Thank you for participating!</p>",
-    choices: ["n", "N", "r", "R"],
+    choices: ["Enter"],
   };
   timeline.push(end_screen);
 

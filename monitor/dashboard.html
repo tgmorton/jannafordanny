@@ -1479,7 +1479,7 @@
 
     // Skip current trial (sends 'Escape' key)
     function skipTrial() {
-      sendKey('Escape');
+      sendKey('r');
     }
 
     // Continue for nature instructions (sends 'm' key - RA only)
@@ -1487,9 +1487,9 @@
       sendKey('m');
     }
 
-    // Continue for dial test (sends 'Escape' key)
+    // Continue for dial test (sends 'm' key)
     function sendDialTestContinue() {
-      sendKey('Escape');
+      sendKey('m');
     }
 
     // Continue for break slide (sends 'm' key - RA only)
@@ -1735,7 +1735,7 @@
 
       switch (msg.type) {
         case 'session_start':
-          startSession(msg.participant_id);
+          startSession(msg.participant_id, msg.block_order);
           break;
 
         case 'stage_update':
@@ -1816,7 +1816,7 @@
       } catch(e) {}
     }
 
-    function startSession(pid) {
+    function startSession(pid, blockOrder) {
       state.participantId = pid;
       document.getElementById('waiting').classList.add('hidden');
       document.getElementById('dashboard').classList.remove('hidden');
@@ -1829,6 +1829,14 @@
 
       // Show pause button
       showControlButtons();
+
+      // Display block order badges immediately if provided
+      if (blockOrder && Array.isArray(blockOrder)) {
+        blockOrder.forEach(function(block) {
+          updateBlockBadge(block.order, block.type);
+          state.blocks[block.order].type = block.type;
+        });
+      }
 
       // Mark setup as completed, equipment as active (since PID now comes before equipment tests)
       setStageCompleted('setup');
