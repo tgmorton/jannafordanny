@@ -1477,8 +1477,18 @@
       sendKey('r');
     }
 
-    // Skip current trial (sends 'Escape' key)
+    // Skip current trial - uses skip_video for video trials, sends 'r' key as fallback
     function skipTrial() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      // Use skip_video action which directly ends video trials
+      ws.send(JSON.stringify({
+        type: 'control_command',
+        action: 'skip_video',
+        timestamp: Date.now()
+      }));
+
+      // Also send 'r' key as fallback for non-video trials
       sendKey('r');
     }
 

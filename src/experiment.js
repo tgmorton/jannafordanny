@@ -1,7 +1,7 @@
 /**
  * @title Video Viewing Study
  * @description Video viewing and emotion regulation study
- * @version 3.3.5
+ * @version 3.3.6
  *
  * @assets assets/
  */
@@ -145,6 +145,13 @@ export async function run({
             console.log("Monitor: Pausing video");
             if (window.__videoDialPlugin) {
               window.__videoDialPlugin.pauseVideo();
+            } else {
+              // Fallback: pause any video element on the page (for VideoKeyboardResponsePlugin trials)
+              var video = document.querySelector("video");
+              if (video) {
+                video.pause();
+                console.log("Monitor: Paused video element directly");
+              }
             }
             sendMonitorUpdate({ type: "status_update", status: "video_paused" });
           } else if (message.action === "resume_video") {
@@ -152,6 +159,15 @@ export async function run({
             console.log("Monitor: Resuming video");
             if (window.__videoDialPlugin) {
               window.__videoDialPlugin.resumeVideo();
+            } else {
+              // Fallback: resume any video element on the page
+              var video = document.querySelector("video");
+              if (video) {
+                video.play().catch(function (e) {
+                  console.log("Monitor: Video resume failed:", e);
+                });
+                console.log("Monitor: Resumed video element directly");
+              }
             }
             sendMonitorUpdate({ type: "status_update", status: "video_resumed" });
           } else if (message.action === "continue") {
@@ -166,6 +182,17 @@ export async function run({
             jsPsych.pluginAPI.keyDown(message.key);
             jsPsych.pluginAPI.keyUp(message.key);
             sendMonitorUpdate({ type: "status_update", status: "key_sent", key: message.key });
+          } else if (message.action === "skip_video") {
+            // Special action to skip video trials - directly ends the current trial
+            console.log("Monitor: Skipping video trial");
+            var video = document.querySelector("video");
+            if (video) {
+              video.pause();
+              video.currentTime = video.duration; // Jump to end
+              // Trigger the ended event to let jsPsych handle trial end
+              video.dispatchEvent(new Event("ended"));
+            }
+            sendMonitorUpdate({ type: "status_update", status: "video_skipped" });
           }
         }
       } catch (e) {
@@ -1551,7 +1578,7 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 18px; text-align: center; line-height: 1.6;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 18px;">Press the <strong>dial button</strong> to continue.</span></p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; padding: 40px; min-height: 70vh;"><div style="text-align: center; max-width: 850px;"><p style="font-size: 28px; line-height: 1.6;">You will now apply the approach you learned onto a guided video.</p><p style="font-size: 20px; color: #888; margin-top: 40px;">Press the <strong>dial button</strong> to continue.</p></div></div>',
         choices: ["Enter"],
         data: { task: "practice_intro", condition: "neutral" },
       },
@@ -1672,7 +1699,7 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 18px; text-align: center; line-height: 1.6;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 18px;">Press the <strong>dial button</strong> to continue.</span></p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; padding: 40px; min-height: 70vh;"><div style="text-align: center; max-width: 850px;"><p style="font-size: 28px; line-height: 1.6;">You will now apply the approach you learned onto a guided video.</p><p style="font-size: 20px; color: #888; margin-top: 40px;">Press the <strong>dial button</strong> to continue.</p></div></div>',
         choices: ["Enter"],
         data: { task: "practice_intro", condition: "participatory" },
       },
@@ -1791,7 +1818,7 @@ export async function run({
       practice_intro: {
         type: HtmlKeyboardResponsePlugin,
         stimulus:
-          '<div style="display: flex; align-items: center; justify-content: center; min-height: 50vh;"><p style="font-size: 18px; text-align: center; line-height: 1.6;">You will now apply the approach you learned onto a guided video.<br><br><span style="color: #888; font-size: 18px;">Press the <strong>dial button</strong> to continue.</span></p></div>',
+          '<div style="display: flex; align-items: center; justify-content: center; padding: 40px; min-height: 70vh;"><div style="text-align: center; max-width: 850px;"><p style="font-size: 28px; line-height: 1.6;">You will now apply the approach you learned onto a guided video.</p><p style="font-size: 20px; color: #888; margin-top: 40px;">Press the <strong>dial button</strong> to continue.</p></div></div>',
         choices: ["Enter"],
         data: { task: "practice_intro", condition: "observatory" },
       },
