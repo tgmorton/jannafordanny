@@ -94,6 +94,20 @@ export async function run({
     on_finish: function () {
       sendMonitorUpdate({ type: "session_end" });
       const resultData = jsPsych.data.get().json();
+
+      // Download results to browser first (backup before JATOS)
+      const blob = new Blob([resultData], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const pid = jsPsych.data.get().filter({ task: "pid_entry" }).values()[0]?.response?.pid || "unknown";
+      a.href = url;
+      a.download = `experiment_${pid}_${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
       // Check if JATOS is available
       if (typeof jatos !== "undefined") {
         jatos.endStudy(resultData);
