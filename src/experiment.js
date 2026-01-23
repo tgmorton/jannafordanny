@@ -116,12 +116,6 @@ export async function run({
         console.log("Experiment complete. Data:", resultData);
       }
     },
-    on_data_update: function (data) {
-      // Save data incrementally to JATOS after each trial
-      if (typeof jatos !== "undefined" && jatos.submitResultData) {
-        jatos.submitResultData(data);
-      }
-    },
   });
 
   // Set up monitor message handler for pause/resume/continue commands
@@ -2179,8 +2173,8 @@ export async function run({
     console.log("First video stimulus:", blockVideoStimuli[0]);
     timeline.push(video_procedure);
 
-    // Add break slide after each block except the last one
-    if (b < blocks.length - 1) {
+    // Add break slide after block 1 only
+    if (b === 0) {
       timeline.push(break_slide);
     }
   }
