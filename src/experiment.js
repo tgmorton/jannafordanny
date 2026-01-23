@@ -1,7 +1,7 @@
 /**
  * @title Video Viewing Study
  * @description Video viewing and emotion regulation study
- * @version 3.3.6
+ * @version 3.3.7
  *
  * @assets assets/
  */
