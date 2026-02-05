@@ -1,7 +1,7 @@
 /**
  * @title Video Viewing Study
  * @description Video viewing and emotion regulation study
- * @version 3.3.7
+ * @version 4.0.0
  *
  * @assets assets/
  */
@@ -90,10 +90,140 @@ export async function run({
   // Expose for dial plugin to use
   window.__experimentMonitor = { sendMonitorUpdate };
 
+  // === DATA BACKUP SYSTEM ===
+  // Generate unique session ID for localStorage
+  var sessionId = "exp_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+
+  // Save data to localStorage (called after each trial)
+  function backupToLocalStorage(data) {
+    try {
+      var pid = "unknown";
+      var pidData = data.filter({ task: "pid_entry" }).values();
+      if (pidData.length > 0 && pidData[0].response) {
+        pid = pidData[0].response.pid;
+      }
+      var backupKey = "jspsych_backup_" + pid + "_" + sessionId;
+      localStorage.setItem(backupKey, data.json());
+      localStorage.setItem("jspsych_backup_latest", backupKey);
+      console.log("Data backed up to localStorage:", backupKey);
+    } catch (e) {
+      console.warn("localStorage backup failed:", e);
+    }
+  }
+
+  // Save incrementally to JATOS after each block
+  function saveToJatosIncremental(blockNum) {
+    if (typeof jatos !== "undefined" && jatos.appendResultData) {
+      try {
+        var blockData = jsPsych.data.get().filter({ block: blockNum }).json();
+        jatos.appendResultData(blockData);
+        console.log("Block", blockNum, "data sent to JATOS");
+      } catch (e) {
+        console.warn("JATOS incremental save failed:", e);
+      }
+    }
+  }
+
+  // Emergency save on page close/refresh
+  window.addEventListener("beforeunload", function (e) {
+    try {
+      var data = jsPsych.data.get();
+      backupToLocalStorage(data);
+      // Also try to send to JATOS
+      if (typeof jatos !== "undefined" && jatos.submitResultData) {
+        jatos.submitResultData(data.json());
+      }
+    } catch (err) {
+      console.warn("Emergency save failed:", err);
+    }
+  });
+
+  // Check for previous incomplete session on load
+  (function checkForRecoveryData() {
+    try {
+      var latestKey = localStorage.getItem("jspsych_backup_latest");
+      if (latestKey) {
+        var recoveryData = localStorage.getItem(latestKey);
+        if (recoveryData) {
+          console.log("Found recovery data from previous session:", latestKey);
+          console.log("Recovery data available. To download, run in console:");
+          console.log("  downloadRecoveryData('" + latestKey + "')");
+        }
+      }
+    } catch (e) {
+      console.warn("Recovery check failed:", e);
+    }
+  })();
+
+  // Global function to download recovery data
+  window.downloadRecoveryData = function (key) {
+    var data = localStorage.getItem(key || localStorage.getItem("jspsych_backup_latest"));
+    if (data) {
+      var blob = new Blob([data], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "recovery_" + (key || "latest") + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      console.log("Recovery data downloaded");
+    } else {
+      console.log("No recovery data found");
+    }
+  };
+
+  // Clear old backups (keep only last 5)
+  (function cleanOldBackups() {
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.startsWith("jspsych_backup_") && key !== "jspsych_backup_latest") {
+          keys.push(key);
+        }
+      }
+      keys.sort();
+      while (keys.length > 5) {
+        localStorage.removeItem(keys.shift());
+      }
+    } catch (e) {
+      console.warn("Backup cleanup failed:", e);
+    }
+  })();
+
+  // Track current block globally so every trial gets tagged
+  var currentBlock = { block_type: "pre", block_order: 0 };
+
   const jsPsych = initJsPsych({
+    on_trial_finish: function (data) {
+      // Update block tracker when a trial with block info is encountered
+      if (data.block_type && data.block_type !== currentBlock.block_type) {
+        currentBlock.block_type = data.block_type;
+        currentBlock.block_order = data.block_order || 0;
+      }
+
+      // Stamp block info onto trials that don't have it
+      if (!data.block_type) {
+        data.block_type = currentBlock.block_type;
+        data.block_order = currentBlock.block_order;
+      }
+
+      // Backup to localStorage after every trial
+      backupToLocalStorage(jsPsych.data.get());
+    },
     on_finish: function () {
       sendMonitorUpdate({ type: "session_end" });
-      const resultData = jsPsych.data.get().json();
+
+      // Strip bulky fields (stimulus HTML, internal_node_id) to reduce file size
+      var cleanData = jsPsych.data.get().values().map(function (trial) {
+        var clean = Object.assign({}, trial);
+        delete clean.stimulus;
+        delete clean.internal_node_id;
+        return clean;
+      });
+      const resultData = JSON.stringify(cleanData);
 
       // Download results to browser first (backup before JATOS)
       const blob = new Blob([resultData], { type: "application/json" });
@@ -110,10 +240,40 @@ export async function run({
 
       // Check if JATOS is available
       if (typeof jatos !== "undefined") {
-        jatos.endStudy(resultData);
+        // Show upload status
+        var statusDiv = document.createElement("div");
+        statusDiv.id = "upload-status";
+        statusDiv.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:40px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;z-index:9999;";
+        statusDiv.innerHTML = "<h2>Uploading data to server...</h2><p>This may take a minute due to data size.</p><p style='color:#666;font-size:14px;'>Your data has already been downloaded to this computer.</p>";
+        document.body.appendChild(statusDiv);
+
+        // Submit data with longer timeout handling
+        jatos.submitResultData(resultData)
+          .then(function() {
+            console.log("Data submitted to JATOS successfully");
+            statusDiv.innerHTML = "<h2 style='color:green;'>✓ Data uploaded successfully!</h2><p>You may close this window.</p>";
+            setTimeout(function() { jatos.endStudy(); }, 2000);
+          })
+          .catch(function(err) {
+            console.error("JATOS submit failed:", err);
+            statusDiv.innerHTML = "<h2 style='color:orange;'>Upload timed out</h2><p>Don't worry - your data was downloaded to this computer.</p><p style='color:#666;'>Please give the downloaded file to the research assistant.</p>";
+            setTimeout(function() { jatos.endStudy(); }, 5000);
+          });
       } else {
         // Fallback: log data to console when not running in JATOS
         console.log("Experiment complete. Data:", resultData);
+      }
+
+      // Clear localStorage backup on successful completion
+      try {
+        var backupKey = localStorage.getItem("jspsych_backup_latest");
+        if (backupKey) {
+          localStorage.removeItem(backupKey);
+          localStorage.removeItem("jspsych_backup_latest");
+          console.log("Cleared localStorage backup after successful save");
+        }
+      } catch (e) {
+        console.warn("Failed to clear backup:", e);
       }
     },
   });
@@ -1962,6 +2122,9 @@ export async function run({
         instruction: "Break Time",
         rt: data.rt,
       });
+      // Incremental save to JATOS after each block
+      var completedBlocks = jsPsych.data.get().filter({ task: "break_slide" }).count();
+      saveToJatosIncremental(completedBlocks);
     },
   };
 
@@ -2179,11 +2342,12 @@ export async function run({
     }
   }
 
-  // End screen
+  // End screen - auto-advances to trigger data save
   var end_screen = {
     type: HtmlKeyboardResponsePlugin,
-    stimulus: "<h1>Experiment Complete</h1><p>Thank you for participating!</p>",
-    choices: ["Enter"],
+    stimulus: "<h1>Experiment Complete</h1><p>Thank you for participating!</p><p style='color:#666; margin-top:30px;'>Saving data...</p>",
+    choices: "NO_KEYS",
+    trial_duration: 2000,
   };
   timeline.push(end_screen);
 

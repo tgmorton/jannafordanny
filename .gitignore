@@ -24,3 +24,14 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Participant data
+results/
+*.csv
+jatos_results_data_*
+
+# Plots and reports derived from participant data
+all_plots/
+dial_plots/
+analysis_report.md
+analysis_report.pdf
